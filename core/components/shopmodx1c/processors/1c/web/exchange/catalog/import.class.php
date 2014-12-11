@@ -27,8 +27,11 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
     		"FILE_SIZE_LIMIT" => (int)$this->modx->getOption('shopmodx1c.postfile_size_limit', null, 200) * 1024,
     		"USE_ZIP" => $this->modx->getOption('shopmodx1c.use_zip', null, true),
             "DIR_NAME"  => $this->modx->getOption('shopmodx1c.import_dir', null, MODX_CORE_PATH . 'components/shopmodx1c/import_files/'),
-            "process_items_per_step"    => 50,  // Сколько элементов обрабатывать за шаг (create|update)
 		));
+        
+        $this->setDefaultProperties(array(
+            "process_items_per_step"    => 50,  // Сколько элементов обрабатывать за шаг (create|update)
+        ));
         
         return parent::initialize();
     }
@@ -283,6 +286,8 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                     // Парсинг большого документа посредством XMLReader с Expand - DOM/DOMXpath 
                     $reader = new XMLReader();
                     
+                    print "\n".$ABS_FILE_NAME;
+                    
                     $reader->open($ABS_FILE_NAME);
                     
                     while ($reader->read()) {
@@ -388,8 +393,10 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                                             		// Сохраняем первичные данные во временную таблицу
                                                     
                                                     $article = (string)$product->Ид;
-                                                    $title = str_replace("'", "\'", (string)$product->Наименование);
-                                                    $description = str_replace("'", "\'", (string)$product->Описание);
+                                                    # $title = str_replace("'", "\'", (string)$product->Наименование);
+                                                    # $description = str_replace("'", "\'", (string)$product->Описание);
+                                                    $title = $this->modx->quote($product->Наименование);
+                                                    $description = $this->modx->quote($product->Описание);
                                                     $image = (string)$product->Картинка;
                                                     
                                                     // Необходимо переделать на множество групп
@@ -398,7 +405,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                                                     );    
                                                     $groups = json_encode($groups);
                                                     
-                                                    $rows[] = "('{$article}', '{$title}', '{$description}', '{$image}', '{$groups}')";
+                                                    $rows[] = "('{$article}', {$title}, {$description}, '{$image}', '{$groups}')";
                                                     
                                                     if($i % $linesPerStep == 0){
                                                         if(!$this->insertInDataBase($table, $rows, $columns)){
@@ -558,6 +565,10 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                         
                         // Проходимся по каждому товару
                         foreach($products as $product){
+                            
+                            $product->set('processed', 1);
+                            $product->save();
+                            
                             $article = $product->article;
                             /*
                                 Если товар уже есть в магазине, то обновляем его
@@ -623,11 +634,6 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                                     $this->modx->log(1, print_r($response->getResponse(), true));
                                 }
                             }
-                            
-                            
-                            
-                            $product->set('processed', 1);
-                            $product->save();
                         }
                     }
                     
