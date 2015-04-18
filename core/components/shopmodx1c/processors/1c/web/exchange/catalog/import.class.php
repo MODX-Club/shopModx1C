@@ -47,7 +47,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         }
         else
         {
-            $string = mb_convert_encoding($string, "CP1251", "UTF-8");
+            $string = mb_convert_encoding($string, $this->getProperty('outputCharset', 'CP1251'), "UTF-8");
         }
         $this->outputData[] = $string;
     }
