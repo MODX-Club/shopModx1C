@@ -21,6 +21,11 @@ class mod1cWebExchangeExchangeProcessor extends modProcessor
     public function initialize() 
     {
         $this->modx->addPackage('shopModx1C', MODX_CORE_PATH . 'components/shopmodx1c/model/');
+        
+        $this->setDefaultProperties(array(
+            "outputCharset" => "CP1251",
+        ));
+        
         return parent::initialize();
     }
     public function process() 
