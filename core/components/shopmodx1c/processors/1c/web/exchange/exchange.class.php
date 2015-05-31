@@ -2,12 +2,36 @@
 class mod1cWebExchangeExchangeProcessor extends modProcessor
 {
     protected $outputData = array();
-    public static function getInstance(modX & $modx, $className, $properties = array())
+    /**
+     * режимы импорта
+     */
+    protected $debug = false;
+    #
+    
+    /**
+     * уровни логов импорта
+     */
+    protected $log_success_level = xPDO::LOG_LEVEL_INFO;
+    protected $log_failure_level = xPDO::LOG_LEVEL_ERROR;
+    #
+    
+    /**
+     * путь к модулю
+     */
+    protected function getModulePath() 
+    {
+        return MODX_CORE_PATH . "components/shopmodx1c/model/";
+    }
+    #
+    
+    /**
+     */
+    public static function getInstance(modX & $modx, $className, $properties = array()) 
     {
         // Здесь мы имеем возможность переопределить реальный класс процессора
-        if (!empty($properties['type']))
+        if (!empty($properties['type'])) 
         {
-            switch ($properties['type'])
+            switch ($properties['type']) 
             {
             case 'catalog':
                 require_once dirname(__FILE__) . '/catalog/import.class.php';
@@ -18,41 +42,81 @@ class mod1cWebExchangeExchangeProcessor extends modProcessor
         }
         return parent::getInstance($modx, $className, $properties);
     }
-    public function initialize()
+    #
+    
+    /**
+     * init
+     */
+    public function initialize() 
     {
-        $this->modx->addPackage('shopModx1C', MODX_CORE_PATH . 'components/shopmodx1c/model/');
+        $this->modx->addPackage('shopModx1C', $this->getModulePath());
         $this->setDefaultProperties(array(
             "outputCharset" => "CP1251",
         ));
         return parent::initialize();
     }
-    public function process()
+    #
+    
+    /**
+     * do the stuff
+     */
+    public function process() 
     {
         return $this->failure('failure');
     }
-    protected function addOutput($string)
+    #
+    
+    /**
+     * prepare data for output
+     */
+    protected function addOutput($string) 
     {
         $this->outputData[] = $string;
     }
-    public function success($msg = '', $object = null)
+    #
+    
+    /**
+     * prepare data 4 output to 1c
+     */
+    protected function _prepareOutput($msg = '') 
     {
         $data = array();
         $msg ? $data[] = $msg : "";
         $data = array_merge($data, $this->outputData);
         $output = implode("\n", $data);
-        $this->modx->log(1, "Success: " . $output);
-        $this->modx->log(1, print_r($data, 1));
         return $output;
     }
-    public function failure($msg = '', $object = null)
+    /**
+     * custom logging
+     */
+    protected function log($level, $output) 
     {
-        $data = array();
-        $msg ? $data[] = $msg : "";
-        $data = array_merge($data, $this->outputData);
-        $output = implode("\n", $data);
-        $this->modx->log(1, "Failure: " . $output);
-        $this->modx->log(1, print_r($data, 1));
+        $txt = ($level == $this->log_failure_level) ? 'Failure' : 'Success';
+        $this->modx->log($level, "{$txt}: " . $output);
+    }
+    #
+    
+    /**
+     * custom success
+     */
+    public function success($msg = '', $object = null) 
+    {
+        $output = $this->_prepareOutput($msg);
+        $this->log($this->log_success_level, $output);
         return $output;
     }
+    #
+    
+    /**
+     * custom failure
+     */
+    public function failure($msg = '', $object = null) 
+    {
+        $output = $this->_prepareOutput($msg);
+        $this->log($this->log_failure_level, $output);
+        return $output;
+    }
+    #
+    
 }
 return 'mod1cWebExchangeExchangeProcessor';
