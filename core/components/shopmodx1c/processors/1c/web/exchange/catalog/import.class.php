@@ -3,7 +3,7 @@
     Импорт данных из 1С.
     Следует учитывать, что все это выполняется не за один запрос,
     а за условно бесконечное, пока не будет выполнен импорт до успеха или ошибки.
-	За это отвечают ответы success|progress|failure
+    За это отвечают ответы success|progress|failure
 */
 require_once dirname(dirname(__FILE__)) . '/exchange.class.php';
 class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangeProcessor
@@ -18,9 +18,9 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
     protected $removeTmpFiles = true; // удалять или нет временные файлы
     protected $convertToTranslit = false; // переводить ли в транслит инф. сообщения
     protected $linesPerStep = 300;
-    public function initialize() 
+    public function initialize()
     {
-        if (!$this->getProperty('mode')) 
+        if (!$this->getProperty('mode'))
         {
             return 'Mode not exists';
         }
@@ -34,13 +34,13 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         ));
         return parent::initialize();
     }
-    protected function addOutput($string) 
+    protected function addOutput($string)
     {
         $this->modx->log(xPDO::LOG_LEVEL_DEBUG, $string);
-        if ($this->convertToTranslit) 
+        if ($this->convertToTranslit)
         {
             $this->modx->getService('translit', $this->modx->getOption('friendly_alias_translit_class') , $this->modx->getOption('friendly_alias_translit_class_path'));
-            if ($this->modx->translit) 
+            if ($this->modx->translit)
             {
                 $string = $this->modx->translit->translate($string, 'russian-gosdep');
             }
@@ -51,26 +51,26 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         }
         $this->outputData[] = $string;
     }
-    public function process() 
+    public function process()
     {
         $Params = $this->getProperties();
         $DIR_NAME = $Params['DIR_NAME'];
         $mode = $Params['mode'];
         // Авторизация
-        if ($mode == "checkauth") 
+        if ($mode == "checkauth")
         {
             if (!$response = $this->modx->runProcessor('security/login', array(
                 "username" => $_SERVER['PHP_AUTH_USER'],
                 "password" => $_SERVER['PHP_AUTH_PW'],
-            ))) 
+            )))
             {
                 $this->addOutput("Ошибка выполнения запроса.");
                 return $this->failure("failure");
             }
             // else
-            if ($response->isError()) 
+            if ($response->isError())
             {
-                if (!$msg = $response->getMessage()) 
+                if (!$msg = $response->getMessage())
                 {
                     $msg = "Ошибка авторизации.";
                 }
@@ -83,7 +83,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         }
         // else
         // Проверка, что пользователь авторизован
-        if (!$this->modx->user->isAuthenticated($this->modx->context->key)) 
+        if (!$this->modx->user->isAuthenticated($this->modx->context->key))
         {
             $this->modx->log(1, 'not authed');
             $this->addOutput("ERROR_AUTHORIZE");
@@ -92,40 +92,40 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         // else
         $ABS_FILE_NAME = false;
         $WORK_DIR_NAME = false;
-        if ($filename = $this->getProperty('filename')) 
+        if ($filename = $this->getProperty('filename'))
         {
             $ABS_FILE_NAME = $DIR_NAME . $filename;
         }
         /*
             Первичная инициализация
         */
-        if ($mode == "init") 
+        if ($mode == "init")
         {
             /*
                 Проверяем основные настройки
             */
-            if (!$this->modx->getOption('shopmodx1c.article_tv')) 
+            if (!$this->modx->getOption('shopmodx1c.article_tv'))
             {
                 $error = "Не указан ID TV-параметра для артикулов 1С";
                 $this->modx->log(1, $error);
                 $this->addOutput($error);
                 return $this->failure("failure");
             }
-            if (!$this->modx->getOption('shopmodx1c.catalog_root_id')) 
+            if (!$this->modx->getOption('shopmodx1c.catalog_root_id'))
             {
                 $error = "Не указан ID корневого раздела каталога";
                 $this->modx->log(1, $error);
                 $this->addOutput($error);
                 return $this->failure("failure");
             }
-            if (!$this->modx->getOption('shopmodx1c.product_default_template')) 
+            if (!$this->modx->getOption('shopmodx1c.product_default_template'))
             {
                 $error = "Не указан ID шаблона для товаров";
                 $this->modx->log(1, $error);
                 $this->addOutput($error);
                 return $this->failure("failure");
             }
-            if (!$this->modx->getOption('shopmodx1c.category_default_template')) 
+            if (!$this->modx->getOption('shopmodx1c.category_default_template'))
             {
                 $error = "Не указан ID шаблона для категории";
                 $this->modx->log(1, $error);
@@ -135,7 +135,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             /**********************************/
             // Очищаем импорт-директорию
             $this->clearImportDir();
-            if (!is_dir($DIR_NAME)) 
+            if (!is_dir($DIR_NAME))
             {
                 $this->addOutput('ERROR_INIT');
                 return $this->failure("failure");
@@ -154,20 +154,20 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             }
         }
         // Сохраняем импортируемый файл-выгрузку
-        elseif (($mode == "file") && $ABS_FILE_NAME) 
+        elseif (($mode == "file") && $ABS_FILE_NAME)
         {
             if (function_exists("file_get_contents")) $DATA = file_get_contents("php://input");
             elseif (isset($GLOBALS["HTTP_RAW_POST_DATA"])) $DATA = & $GLOBALS["HTTP_RAW_POST_DATA"];
             else $DATA = false;
             $DATA_LEN = mb_strlen($DATA, 'latin1');
-            if (isset($DATA) && $DATA !== false) 
+            if (isset($DATA) && $DATA !== false)
             {
-                if ($fp = fopen($ABS_FILE_NAME, "ab")) 
+                if ($fp = fopen($ABS_FILE_NAME, "ab"))
                 {
                     $result = fwrite($fp, $DATA);
-                    if ($result === $DATA_LEN) 
+                    if ($result === $DATA_LEN)
                     {
-                        if ($_SESSION["SM_1C_IMPORT"]["zip"]) 
+                        if ($_SESSION["SM_1C_IMPORT"]["zip"])
                         {
                             $_SESSION["SM_1C_IMPORT"]["zip"] = $ABS_FILE_NAME;
                         }
@@ -192,21 +192,21 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             }
         }
         // Если переданный файл был zip-архивом, распаковываем его
-        elseif (($mode == "import") && !empty($_SESSION["SM_1C_IMPORT"]["zip"])) 
+        elseif (($mode == "import") && !empty($_SESSION["SM_1C_IMPORT"]["zip"]))
         {
             $result = false;
-            if ($this->modx->loadClass('compression.xPDOZip', XPDO_CORE_PATH, true, true)) 
+            if ($this->modx->loadClass('compression.xPDOZip', XPDO_CORE_PATH, true, true))
             {
                 $from = $_SESSION["SM_1C_IMPORT"]["zip"];
                 $to = $this->getProperty('DIR_NAME');
                 $archive = new xPDOZip($this->modx, $from);
-                if ($archive) 
+                if ($archive)
                 {
                     $result = $archive->unpack($to);
                     $archive->close();
                 }
             }
-            if (!$result) 
+            if (!$result)
             {
                 $this->addOutput("Ошибка распаковки архива.");
                 return $this->failure("failure");
@@ -220,16 +220,16 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         Когда все данные переданы со стороны 1С,
         выполняем непосредственно обновление информации на стороне MODX-а.
         */
-        elseif (($mode == "import") && $ABS_FILE_NAME) 
+        elseif (($mode == "import") && $ABS_FILE_NAME)
         {
             $NS = & $_SESSION["SM_1C_IMPORT"]["NS"];
             $strError = "";
             $strMessage = "";
             $this->modx->log(xPDO::LOG_LEVEL_INFO, "STEP: " . $NS["STEP"]);
-            switch ($NS["STEP"]) 
+            switch ($NS["STEP"])
             {
                 // Перемещаем картинки в папку изображений товаров
-                
+
             case 0:
                 $DIR_NAME = $this->getProperty('DIR_NAME');
                 $source = $DIR_NAME . 'import_files/';
@@ -244,19 +244,19 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 $NS["STEP"] = 2;
             break;
                 # Парсим свойства и их значения
-                
+
             case 2:
                 $this->importProperties($ABS_FILE_NAME);
                 $NS['STEP'] = 3;
             break;
                 // Парсим товары
-                
+
             case 3:
                 $this->importGoods($ABS_FILE_NAME);
                 $NS["STEP"] = 4;
             break;
                 // Сохраняем категории
-                
+
             case 4:
                 /*
                 Выполняем необходимые действия над данными,
@@ -269,7 +269,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 $category_template = $this->modx->getOption('shopmodx1c.category_default_template');
                 $limit = $this->getProperty('process_items_per_step');
                 // если в настройках указан айдишник для временного каталога, то все категории копируем туда (подготовка для сортировки)
-                if ($catalog_tmp_root_id) 
+                if ($catalog_tmp_root_id)
                 {
                     $catalog_root_id = $catalog_tmp_root_id;
                 }
@@ -282,18 +282,18 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 $q->sortby("{$tmpClass}.id");
                 $q->limit($limit);
                 // Получаем все группы/категории из 1С
-                if ($groups = $this->modx->getCollection($tmpClass, $q)) 
+                if ($groups = $this->modx->getCollection($tmpClass, $q))
                 {
                     // Проходимся по каждому и создаем категорию
-                    foreach ($groups as $group) 
+                    foreach ($groups as $group)
                     {
                         /*
                                 Создаем новую категорию
                         */
                         // Если указан артикул родителя, то пытаемся его получить
-                        if ($group->parent) 
+                        if ($group->parent)
                         {
-                            if (!$parent = $this->getResourceIdByArticle($group->parent)) 
+                            if (!$parent = $this->getResourceIdByArticle($group->parent))
                             {
                                 $error = "Не был получен раздел с артикулом '{$group->parent}'";
                                 $this->modx->log(1, $error);
@@ -312,7 +312,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                             "isfolder" => 1,
                             "tv{$article_tv_id}" => $group->article,
                         );
-                        if (!$response = $this->modx->runProcessor('resource/create', $data)) 
+                        if (!$response = $this->modx->runProcessor('resource/create', $data))
                         {
                             $error = "Ошибка выполнения процессора";
                             $this->modx->log(1, $error);
@@ -320,9 +320,9 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                             return $this->failure($error);
                         }
                         //else
-                        if ($response->isError()) 
+                        if ($response->isError())
                         {
-                            if (!$error = $response->getMessage()) 
+                            if (!$error = $response->getMessage())
                             {
                                 $error = "Не удалось создать раздел с артикулом '{$article}'";
                             }
@@ -333,7 +333,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                         // else
                         $o = $response->getObject();
                         $category_id = $o['id'];
-                        if ($object = $this->modx->getObject('modResource', $category_id)) 
+                        if ($object = $this->modx->getObject('modResource', $category_id))
                         {
                             $object->set('alias', $object->id);
                             $object->save();
@@ -362,16 +362,16 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 // получаем опцию, содержащую имя уник. идентификатора, для определения уник. ключа импорта
                 $_keyOption = $this->modx->getOption('shopmodx1c.article_field_name');
                 # исключаем из списка тв-параметров твшку, которая хранит ключ товара из 1c
-                if ($_keyOption) 
+                if ($_keyOption)
                 {
                     $q->where(array(
                         'title:!=' => $_keyOption
                     ));
                 }
                 // Получаем все свойства из 1С
-                if ($tvs = $this->modx->getCollection($tmpClass, $q)) 
+                if ($tvs = $this->modx->getCollection($tmpClass, $q))
                 {
-                    foreach ($tvs as $tv) 
+                    foreach ($tvs as $tv)
                     {
                         $data = array(
                             "caption" => $tv->title,
@@ -385,7 +385,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                                 )
                             )
                         );
-                        if (!$response = $this->modx->runProcessor('element/tv/create', $data)) 
+                        if (!$response = $this->modx->runProcessor('element/tv/create', $data))
                         {
                             $error = "Ошибка выполнения процессора";
                             $this->modx->log(1, $error);
@@ -394,9 +394,9 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                         }
                         //else
                         $name = $tv->title;
-                        if ($response->isError()) 
+                        if ($response->isError())
                         {
-                            if (!$error = $response->getMessage()) 
+                            if (!$error = $response->getMessage())
                             {
                                 $error = "Не удалось создать tv с именем '{$name}'";
                             }
@@ -411,7 +411,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 else $NS["STEP"] = 6;
                 break;
                 // Сохраняем/обновляем товары
-                
+
             case 6:
                 /*
                 Выполняем необходимые действия над данными,
@@ -425,7 +425,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 $limit = $this->getProperty('process_items_per_step');
                 // получаем опцию, содержащую имя уник. идентификатора, для определения уник. ключа импорта
                 $_keyOption = $this->modx->getOption('shopmodx1c.article_field_name');
-                if (!empty($_keyOption)) 
+                if (!empty($_keyOption))
                 {
                     $_keyField = $this->modx->getObject('Shopmodx1cTmpProperty', array(
                         'title' => $_keyOption
@@ -440,7 +440,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                         т.к. 1с, при обновлении данных, может изменить внутренний айдишник товара.
                     В настройках модуля импорта есть спец. пункт, который хранит название свойства в выгрузке, хранящее новый уникальный айди.
                     В нашей системе этот уникальный айдишник сохраняется, как артикул, при этом мы также храним внутренний айдишник 1с
-                    
+
                     Поля находятся в модели продукта. sm_articul — уник. айди
                     sm_externalKey — для доп. поля
                 */
@@ -456,27 +456,27 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 ));
                 $q->limit($limit);
                 // Получаем все группы/категории из 1С
-                if ($products = $this->modx->getCollection($tmpClass, $q)) 
+                if ($products = $this->modx->getCollection($tmpClass, $q))
                 {
                     // Проходимся по каждому товару
-                    foreach ($products as $product) 
+                    foreach ($products as $product)
                     {
                         $article = $product->article;
                         /*
                                 Если товар уже есть в магазине, то обновляем его
                         */
                         $_rid = $product->resource_id;
-                        if ($_rid) 
+                        if ($_rid)
                         {
                             $good = $this->modx->getObject('ShopmodxResourceProduct', $_rid);
                             // обновляем твшки
                             $this->setTVs($good, $product->extended);
                         }
                         // иначе создаем новый
-                        else 
+                        else
                         {
                             // Определяем категорию, куда товар создавать
-                            if (!$groups = json_decode($product->groups, 1) OR !$group = current($groups)) 
+                            if (!$groups = json_decode($product->groups, 1) OR !$group = current($groups))
                             {
                                 $error = "Не был получен раздел для товара с артикулом '{$article}'";
                                 $this->modx->log(xPDO::LOG_LEVEL_ERROR, $error);
@@ -485,7 +485,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                             }
                             // else
                             // Проверяем наличие категории в каталоге
-                            if (!$parent = $this->getResourceIdByArticle($group)) 
+                            if (!$parent = $this->getResourceIdByArticle($group))
                             {
                                 $error = "Не был получен раздел с артикулом '{$group}'";
                                 $this->modx->log(xPDO::LOG_LEVEL_ERROR, $error);
@@ -508,7 +508,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                             # print_r($product->toArray());
                             # die;
                             // если в наcтройках указана опция, в которой хранится уник. айди, то решаем какой параметр — основной
-                            if (!empty($_keyOption)) 
+                            if (!empty($_keyOption))
                             {
                                 $data["sm_externalKey"] = $product->article;
                                 $ext = $product->extended;
@@ -520,7 +520,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                                 # $this->modx->log(1,print_r($ext,1));
                                 # $this->addOutput($product->extended);
                                 # $this->addOutput($ext);
-                                if ($ext && is_object($_keyField)) 
+                                if ($ext && is_object($_keyField))
                                 {
                                     $ext = json_decode($ext, 1);
                                     $data["sm_article"] = $ext[$_keyField->article];
@@ -537,11 +537,11 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                             {
                                 $data["sm_article"] = $product->article;
                             }
-                            if ($product->image && $image_tv_id) 
+                            if ($product->image && $image_tv_id)
                             {
                                 $data["tv{$image_tv_id}"] = $product->image;
                             }
-                            if (!$response = $this->modx->runProcessor('resource/create', $data)) 
+                            if (!$response = $this->modx->runProcessor('resource/create', $data))
                             {
                                 $error = "Ошибка выполнения процессора";
                                 $this->modx->log(1, $error);
@@ -549,22 +549,22 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                                 return $this->failure($error);
                             }
                             //else
-                            if ($response->isError()) 
+                            if ($response->isError())
                             {
-                                if (!$error = $response->getMessage()) 
+                                if (!$error = $response->getMessage())
                                 {
                                     $error = "Не удалось создать товар с артикулом '{$article}'";
                                 }
                                 $this->modx->log(1, $error);
                                 $this->modx->log(1, print_r($response->getResponse() , true));
                                 // если объект успешно создан — набиваем твшки;
-                                
+
                             }
                             else
                             {
                                 $data = $response->getObject();
                                 $resource = $this->modx->getObject('ShopmodxResourceProduct', $data['id']);
-                                if (!$resource) 
+                                if (!$resource)
                                 {
                                     $error = "Не был получен объект товара после создания оного. артикул: '{$product->article}'. Значения тв-параметров не будут обновлены";
                                     $this->modx->log(1, $error);
@@ -586,7 +586,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 else $NS["STEP"] = 7;
                 break;
                 # for custom events which
-                
+
             case 7:
                 # Здесь мы обрабатываем значения свойств тв-параметров.
                 # Мы будем получать коллекцию объектов из бд, созданных ранее и выбрасывать их вместе с событием в систему
@@ -602,25 +602,25 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                     "{$tmpClass}.*",
                 ));
                 $c->limit($limit);
-                if ($collection = $this->modx->getCollection($tmpClass, $c)) 
+                if ($collection = $this->modx->getCollection($tmpClass, $c))
                 {
                     // получаем опцию, содержащую имя уник. идентификатора, для определения уник. ключа импорта
                     $_keyOption = $this->modx->getOption('shopmodx1c.article_field_name');
-                    if (!empty($_keyOption)) 
+                    if (!empty($_keyOption))
                     {
                         $_keyField = $this->modx->getObject('Shopmodx1cTmpProperty', array(
                             'title' => $_keyOption
                         ));
                     }
-                    foreach ($collection as $obj) 
+                    foreach ($collection as $obj)
                     {
                         # если в массив свойств товара передается уник. айди товара, то не обрабатываем значение
-                        if ($_keyField and $_keyField->article == $obj->parent) 
+                        if ($_keyField and $_keyField->article == $obj->parent)
                         {
                             continue;
                         }
                         # if we have an event
-                        if ($event = $this->getProperty('NEW_PROPERTIES_VALUES_EVENT_NAME')) 
+                        if ($event = $this->getProperty('NEW_PROPERTIES_VALUES_EVENT_NAME'))
                         {
                             $response = $this->modx->invokeEvent($event, array(
                                 'propertyValue' => & $obj
@@ -636,7 +636,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             }
             return $this->success('progress');
         }
-        else if ($mode = 'deactivate') 
+        else if ($mode = 'deactivate')
         {
             # Очищаем временные таблицы
             $this->clearTmpTables();
@@ -650,45 +650,45 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         return $this->success('');
     }
     # обработка категорий
-    public function importCategories($ABS_FILE_NAME) 
+    public function importCategories($ABS_FILE_NAME)
     {
         // Парсинг большого документа посредством XMLReader с Expand - DOM/DOMXpath
         $reader = new XMLReader();
         $reader->open($ABS_FILE_NAME);
-        while ($reader->read()) 
+        while ($reader->read())
         {
-            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'КоммерческаяИнформация')) 
+            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'КоммерческаяИнформация'))
             {
-                while ($reader->read()) 
+                while ($reader->read())
                 {
-                    if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Классификатор')) 
+                    if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Классификатор'))
                     {
-                        while ($reader->read()) 
+                        while ($reader->read())
                         {
                             // парсим группы
-                            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Группы')) 
+                            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Группы'))
                             {
-                                while ($reader->read()) 
+                                while ($reader->read())
                                 {
                                     // парсим группы
-                                    if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Группа'))) 
+                                    if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Группа')))
                                     {
                                         $this->importCategoriesStuff($reader);
                                         $reader->next();
                                     }
-                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Группы') 
+                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Группы')
                                     {
                                         break;
                                     }
                                 }
                             }
-                            if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Классификатор') 
+                            if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Классификатор')
                             {
                                 break;
                             }
                         }
                     }
-                    elseif (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Каталог')) 
+                    elseif (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Каталог'))
                     {
                         $reader->next();
                     }
@@ -696,7 +696,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             }
         }
     }
-    protected function importCategoriesStuff($reader) 
+    protected function importCategoriesStuff($reader)
     {
         $node = $reader->readOuterXML();
         $xml = simplexml_load_string($node);
@@ -706,73 +706,73 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         $this->insertGroupsInDataBase();
     }
     # Обработка свойств и их значений
-    public function importProperties($ABS_FILE_NAME) 
+    public function importProperties($ABS_FILE_NAME)
     {
         // Парсинг большого документа посредством XMLReader с Expand - DOM/DOMXpath
         $reader = new XMLReader();
         $reader->open($ABS_FILE_NAME);
-        while ($reader->read()) 
+        while ($reader->read())
         {
-            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'КоммерческаяИнформация')) 
+            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'КоммерческаяИнформация'))
             {
-                while ($reader->read()) 
+                while ($reader->read())
                 {
-                    if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Классификатор')) 
+                    if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Классификатор'))
                     {
-                        while ($reader->read()) 
+                        while ($reader->read())
                         {
                             // парсим свойства товара (твшки)
-                            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Свойства')) 
+                            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Свойства'))
                             {
-                                while ($reader->read()) 
+                                while ($reader->read())
                                 {
                                     // парсим группы
-                                    if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Свойство'))) 
+                                    if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Свойство')))
                                     {
                                         $parent = null;
                                         // Парсим свойства
                                         $isGood = false;
                                         $xml = $this->importPropertiesStuff($reader, $isGood);
                                         # если у нас текущее свойство является свойством товара (твшка), то процессим его словарь значений
-                                        if ($isGood !== false and $xml->ВариантыЗначений and $xml->ТипЗначений == 'Справочник') 
+                                        if ($isGood !== false and $xml->ВариантыЗначений and $xml->ТипЗначений == 'Справочник')
                                         {
                                             /*
                                                 на данном этапе происходит импорт справочника. мы заносим значения во временную таблицу.
                                             */
                                             # для привязки значений свойств к свойствам
                                             $parent = current((array)$xml->Ид);
-                                            while ($reader->read()) 
+                                            while ($reader->read())
                                             {
                                                 # парсим варианты значений свойств
-                                                if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Справочник'))) 
+                                                if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Справочник')))
                                                 {
                                                     # some action
                                                     $this->importPropertiesValuesStuff($reader, $parent);
-                                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Справочник') 
+                                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Справочник')
                                                     {
                                                         break;
                                                     }
                                                 }
-                                                if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'ВариантыЗначений') 
+                                                if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'ВариантыЗначений')
                                                 {
                                                     break;
                                                 }
                                             }
                                         }
                                     }
-                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Свойства') 
+                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Свойства')
                                     {
                                         break;
                                     }
                                 }
                             }
-                            if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Классификатор') 
+                            if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Классификатор')
                             {
                                 break;
                             }
                         }
                     }
-                    elseif (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Каталог')) 
+                    elseif (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Каталог'))
                     {
                         $reader->next();
                     }
@@ -780,7 +780,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             }
         }
     }
-    protected function importPropertiesStuff($reader, &$isGood = false) 
+    protected function importPropertiesStuff($reader, &$isGood = false)
     {
         $node = $reader->readOuterXML();
         $xml = simplexml_load_string($node);
@@ -790,18 +790,18 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         $this->insertPropertiesInDataBase();
         return $xml;
     }
-    protected function importPropertiesValuesStuff($reader, $parent) 
+    protected function importPropertiesValuesStuff($reader, $parent)
     {
         $node = $reader->readOuterXML();
         $xml = simplexml_load_string($node);
         $_id = (string)$xml->ИдЗначения;
-        if ($_id == 'true' or $_id == 'false') 
+        if ($_id == 'true' or $_id == 'false')
         {
             # если айди boolean, то пропускаем и пишем в лог
             $this->modx->log(xPDO::LOG_LEVEL_WARN, "Попытка импорта некорректного значения характеристики {$parent}");
             $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($node, 1));
         }
-        else if (!$_id) 
+        else if (!$_id)
         {
             # если айди передается, но пустое
             $this->modx->log(xPDO::LOG_LEVEL_WARN, "Попытка импорта пустого значения характеристики {$parent}");
@@ -814,7 +814,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         }
         unset($_id);
     }
-    public function importGoods($ABS_FILE_NAME) 
+    public function importGoods($ABS_FILE_NAME)
     {
         $table = $this->modx->getTableName($this->tmpProductsClass);
         $columns = array(
@@ -831,33 +831,33 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         // Парсинг большого документа посредством XMLReader с Expand - DOM/DOMXpath
         $reader = new XMLReader();
         $reader->open($ABS_FILE_NAME);
-        while ($reader->read()) 
+        while ($reader->read())
         {
-            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'КоммерческаяИнформация')) 
+            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'КоммерческаяИнформация'))
             {
-                while ($reader->read()) 
+                while ($reader->read())
                 {
-                    if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Классификатор')) 
+                    if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Классификатор'))
                     {
                         $reader->next();
                     }
-                    elseif (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Каталог')) 
+                    elseif (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Каталог'))
                     {
-                        while ($reader->read()) 
+                        while ($reader->read())
                         {
-                            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Товары')) 
+                            if (($reader->nodeType == XMLReader::ELEMENT) && ($reader->name == 'Товары'))
                             {
-                                while ($reader->read()) 
+                                while ($reader->read())
                                 {
-                                    if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Товар'))) 
+                                    if (($reader->nodeType == XMLReader::ELEMENT && ($reader->name == 'Товар')))
                                     {
                                         $this->importGoodsStuff($reader, $rows, $table, $columns, $i);
                                         $reader->next();
                                     }
-                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Товары') 
+                                    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->localName == 'Товары')
                                     {
                                         // Если еще есть массив с данными, то сохраняем их
-                                        if ($rows) 
+                                        if ($rows)
                                         {
                                             $this->insertInDataBase($table, $rows, $columns);
                                         }
@@ -871,7 +871,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             }
         }
     }
-    protected function importGoodsStuff($reader, &$rows, &$table, &$columns, &$i) 
+    protected function importGoodsStuff($reader, &$rows, &$table, &$columns, &$i)
     {
         $linesPerStep = $this->linesPerStep;
         $i++;
@@ -890,39 +890,39 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         // сохраняем параметры товара
         $extended = array();
         $properties = $product->ЗначенияСвойств->ЗначенияСвойства;
-        if ($properties) 
+        if ($properties)
         {
-            foreach ($properties as $prop) 
+            foreach ($properties as $prop)
             {
                 $val = (string)$prop->Значение;
                 $id = (string)$prop->Ид;
                 # если пустые значения
-                if (!$id or !$val) 
+                if (!$id or !$val)
                 {
                     # $this->modx->log(xPDO::LOG_LEVEL_ERROR,'Попытка импорта пустого значения характеристики');
                     # $this->modx->log(xPDO::LOG_LEVEL_WARN,print_r($prop,1));
                     # если передается ключ, то пишем в лог (происходит в случае типа поля - булеан)
-                    
+
                 }
-                else if (preg_match("/^(.+-.+){4}$/", $val)) 
+                else if (preg_match("/^(.+-.+){4}$/", $val))
                 {
                     $this->modx->log(xPDO::LOG_LEVEL_WARN, 'Попытка импорта некорректного значения характеристики');
                     $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($prop, 1));
                     # если значение корректное, то добавляем данные во временный массив, а так же пишем в таблицу свойств
-                    
+
                 }
-                else if ($val) 
+                else if ($val)
                 {
                     # сохраняем во временный массив, причем пропускаем обработку значения, хранящего уник. айди, если он передается
                     // получаем опцию, содержащую имя уник. идентификатора, для определения уник. ключа импорта
                     $_keyOption = $this->modx->getOption('shopmodx1c.article_field_name');
-                    if (!empty($_keyOption)) 
+                    if (!empty($_keyOption))
                     {
                         $_keyField = $this->modx->getObject('Shopmodx1cTmpProperty', array(
                             'title' => $_keyOption
                         ));
                         # если в массив свойств товара передается уник. айди товара, то не обрабатываем значение
-                        if ($_keyField and $_keyField->article != $id) 
+                        if ($_keyField and $_keyField->article != $id)
                         {
                             # $extended[ $id ] = urlencode(htmlspecialchars($val));
                             $extended[$id] = urlencode(($val));
@@ -945,9 +945,9 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         }
         $extended = json_encode($extended);
         $rows[] = "('{$article}', '{$title}', '{$description}', '{$image}', '{$groups}', '{$extended}')";
-        if ($i % $linesPerStep == 0) 
+        if ($i % $linesPerStep == 0)
         {
-            if (!$this->insertInDataBase($table, $rows, $columns)) 
+            if (!$this->insertInDataBase($table, $rows, $columns))
             {
                 return $this->failure("Не удалось выполнить запрос");
             }
@@ -957,7 +957,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
     /*
         Очистка временной директории
     */
-    protected function clearImportDir() 
+    protected function clearImportDir()
     {
         if (!$this->removeTmpFiles) return;
         $DIR_NAME = $this->getProperty('DIR_NAME');
@@ -977,7 +977,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
     /*
         Очистка таблиц
     */
-    protected function clearTmpTables() 
+    protected function clearTmpTables()
     {
         $classes = array(
             $this->tmpCategoriesClass,
@@ -985,16 +985,16 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             $this->tmpPropertiesClass,
             $this->tmpPropertyValuesClass,
         );
-        foreach ($classes as $class) 
+        foreach ($classes as $class)
         {
-            if ($table = $this->modx->getTableName($class)) 
+            if ($table = $this->modx->getTableName($class))
             {
                 $this->modx->exec("TRUNCATE TABLE {$table}");
             }
         }
     }
     // парсим свойства
-    protected function parseProperty(SimpleXMLElement & $property, $parent = null) 
+    protected function parseProperty(SimpleXMLElement & $property, $parent = null)
     {
         # $this->modx->log(1,print_r($properties,1));
         if (!(bool)$property->ДляТоваров) return false;
@@ -1006,19 +1006,19 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         return;
     }
     // парсим значения свойств
-    protected function parsePropertyValue(SimpleXMLElement & $property, $parent = null, $articul = null) 
+    protected function parsePropertyValue(SimpleXMLElement & $property, $parent = null, $articul = null)
     {
         $key = 'ИдЗначения';
         $id = (string)$property->$key;
         $value = (string)$property->Значение;
         $parent = (string)$parent;
-        if (!$id) 
+        if (!$id)
         {
             $id = md5($value . $parent);
         }
         if (!$this->modx->getCount($this->tmpPropertyValuesClass, array(
             'article' => $id
-        ))) 
+        )))
         {
             $this->_propertyValues[] = array(
                 "article" => $id,
@@ -1030,53 +1030,53 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         else
         {
             # $this->modx->log(xPDO::LOG_LEVEL_INFO,'Попытка вставки дубля значения характеристики:' . $value);
-            
+
         }
         return;
     }
     // обновляем твшки
-    protected function setTVs(modResource & $resource, $extended) 
+    protected function setTVs(modResource & $resource, $extended)
     {
-        if (!$resource || !$extended) 
+        if (!$resource || !$extended)
         {
             return;
         }
         $extended = json_decode($extended, 1);
         if (!is_array($extended)) return;
-        foreach ($extended as $k => $v) 
+        foreach ($extended as $k => $v)
         {
             # $resource->setTVValue( (string)$k, urldecode(htmlspecialchars_decode($v)));
             $resource->setTVValue((string)$k, urldecode(($v)));
         }
         return;
         # $resource->save();
-        
+
     }
     // Парсим группу
-    protected function parseGroup(SimpleXMLElement & $group, $parent = null) 
+    protected function parseGroup(SimpleXMLElement & $group, $parent = null)
     {
         $this->groups[] = array(
             "article" => (string)$group->Ид,
             "title" => (string)$group->Наименование,
             "parent" => (string)$parent,
         );
-        if (!empty($group->Группы)) 
+        if (!empty($group->Группы))
         {
             $this->parseGroups($group->Группы, $group->Ид);
         }
         return;
     }
     // Парсим группы
-    protected function parseGroups(SimpleXMLElement & $groups, $parent = null) 
+    protected function parseGroups(SimpleXMLElement & $groups, $parent = null)
     {
-        foreach ($groups->Группа as $group) 
+        foreach ($groups->Группа as $group)
         {
             $this->groups[] = array(
                 "article" => (string)$group->Ид,
                 "title" => (string)$group->Наименование,
                 "parent" => (string)$parent,
             );
-            if (!empty($group->Группы)) 
+            if (!empty($group->Группы))
             {
                 $this->parseGroups($group->Группы, $group->Ид);
             }
@@ -1086,16 +1086,16 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
     /*
         Общая функция для составления запроса на массовую вставку записей
     */
-    protected function insertInDataBase($table, array $rows, array $columns) 
+    protected function insertInDataBase($table, array $rows, array $columns)
     {
         $columns_str = implode(", ", $columns);
-        $sql = "INSERT INTO {$table} 
-            ({$columns_str}) 
+        $sql = "INSERT INTO {$table}
+            ({$columns_str})
             VALUES \n";
         $sql.= implode(",\n", $rows) . ";";
         $s = $this->modx->prepare($sql);
         $result = $s->execute();
-        if (!$result) 
+        if (!$result)
         {
             $this->modx->log(xPDO::LOG_LEVEL_WARN, 'SQL ERROR Import');
             $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($s->errorInfo() , 1));
@@ -1103,7 +1103,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         }
         return $result;
     }
-    protected function insertGroupsInDataBase() 
+    protected function insertGroupsInDataBase()
     {
         $table = $this->modx->getTableName($this->tmpCategoriesClass);
         $columns = array(
@@ -1114,23 +1114,23 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         $rows = array();
         $linesPerStep = 500;
         $i = 0;
-        foreach ($this->groups as $group) 
+        foreach ($this->groups as $group)
         {
             $i++;
             $article = $group['article'];
             $title = str_replace("'", "\'", $group['title']);
             $parent = ($group['parent'] ? "'{$group['parent']}'" : "NULL");
             $rows[] = "('{$article}', '{$title}', {$parent})";
-            if ($i % $linesPerStep == 0) 
+            if ($i % $linesPerStep == 0)
             {
-                if (!$this->insertInDataBase($table, $rows, $columns)) 
+                if (!$this->insertInDataBase($table, $rows, $columns))
                 {
                     return $this->failure("Не удалось выполнить запрос");
                 }
                 $rows = array();
             }
         }
-        if ($rows) 
+        if ($rows)
         {
             $this->insertInDataBase($table, $rows, $columns);
         }
@@ -1138,7 +1138,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         $this->groups = array();
         return;
     }
-    protected function insertPropertiesInDataBase() 
+    protected function insertPropertiesInDataBase()
     {
         $table = $this->modx->getTableName($this->tmpPropertiesClass);
         $columns = array(
@@ -1149,23 +1149,23 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         $rows = array();
         $linesPerStep = 500;
         $i = 0;
-        foreach ($this->_properties as $property) 
+        foreach ($this->_properties as $property)
         {
             $i++;
             $article = $property['article'];
             $title = str_replace("'", "\'", $property['title']);
             $parent = ($property['parent'] ? "'{$property['parent']}'" : "NULL");
             $rows[] = "('{$article}', '{$title}', {$parent})";
-            if ($i % $linesPerStep == 0) 
+            if ($i % $linesPerStep == 0)
             {
-                if (!$this->insertInDataBase($table, $rows, $columns)) 
+                if (!$this->insertInDataBase($table, $rows, $columns))
                 {
                     return $this->failure("Не удалось выполнить запрос");
                 }
                 $rows = array();
             }
         }
-        if ($rows) 
+        if ($rows)
         {
             $this->insertInDataBase($table, $rows, $columns);
         }
@@ -1174,7 +1174,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         return;
     }
     # добавляем значения свойств во временную таблицу
-    protected function insertPropertyValuesInDataBase() 
+    protected function insertPropertyValuesInDataBase()
     {
         $table = $this->modx->getTableName($this->tmpPropertyValuesClass);
         $columns = array(
@@ -1186,7 +1186,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         $rows = array();
         $linesPerStep = 500;
         $i = 0;
-        foreach ($this->_propertyValues as $property) 
+        foreach ($this->_propertyValues as $property)
         {
             $i++;
             $article = $property['article'];
@@ -1194,16 +1194,16 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
             $parent = ($property['parent'] ? "'{$property['parent']}'" : "NULL");
             $good = ($property['good'] ? "'{$property['good']}'" : "NULL");
             $rows[] = "('{$article}', '{$title}', {$parent}, {$good})";
-            if ($i % $linesPerStep == 0) 
+            if ($i % $linesPerStep == 0)
             {
-                if (!$this->insertInDataBase($table, $rows, $columns)) 
+                if (!$this->insertInDataBase($table, $rows, $columns))
                 {
                     return $this->failure("Не удалось выполнить запрос");
                 }
                 $rows = array();
             }
         }
-        if ($rows) 
+        if ($rows)
         {
             $this->insertInDataBase($table, $rows, $columns);
         }
@@ -1212,11 +1212,11 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
         return;
     }
     // Находим ID документа по артикулу
-    protected function getResourceIdByArticle($article) 
+    protected function getResourceIdByArticle($article)
     {
         $result = null;
         $article_tv_id = $this->modx->getOption('shopmodx1c.article_tv');
-        if ($article) 
+        if ($article)
         {
             $q = $this->modx->newQuery('modTemplateVarResource', array(
                 "tmplvarid" => $article_tv_id,

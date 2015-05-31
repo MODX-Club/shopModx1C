@@ -14,6 +14,7 @@ $xpdo_meta_map['Shopmodx1cTmpProduct']= array (
     'properties' => NULL,
     'requisites' => NULL,
     'processed' => '0',
+    'extended' => '{}',
   ),
   'fieldMeta' => 
   array (
@@ -71,6 +72,12 @@ $xpdo_meta_map['Shopmodx1cTmpProduct']= array (
       'null' => false,
       'default' => '0',
       'index' => 'index',
+    ),
+    'extended' => 
+    array (
+      'dbtype' => 'text',
+      'phptype' => 'string',
+      'null' => false,
     ),
   ),
   'indexes' => 
