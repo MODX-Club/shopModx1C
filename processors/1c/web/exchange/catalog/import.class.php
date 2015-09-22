@@ -40,13 +40,13 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
     /**
      * удалять или нет временные файлы
      */
-    protected $removeTmpFiles = true;
+    protected $removeTmpFiles = false;
     #
     
     /**
      * очищать или нет временные таблицы
      */
-    protected $clearTmpTables = true;
+    protected $clearTmpTables = false;
     #
     
     /**
@@ -80,7 +80,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
     // режим отладки
     protected $debug = true;
     // данный режим служит для вывода информации глубокой отладки (параметры сессии, файлов и т.д...)
-    protected $debugDeep = false;
+    protected $debugDeep = true;
     #
     
     /**
@@ -433,6 +433,7 @@ class mod1cWebExchangeCatalogImportProcessor extends mod1cWebExchangeExchangePro
                 $r = $modCacheManager->copyTree($source, $target);
                 $NS["STEP"] = 1;
                 $this->addOutput('Swtich to the 1-th step');
+                return $this->end(true, 'success');
             break;
             case 1:
                 $this->importCategories($ABS_FILE_NAME);

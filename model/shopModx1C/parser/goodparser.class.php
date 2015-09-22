@@ -27,6 +27,12 @@ class goodParser extends importParser
     }
     #
     
+    /** */
+    protected $events = array(
+        'save' => 'OnShopmodx1cGoodSave'
+    );
+    #
+    
     /**
      */
     public function saveTMPGoods($processor) 
@@ -250,7 +256,12 @@ class goodParser extends importParser
                     }
                 }
                 #
-                
+                var_dump($_rid);
+                /** */
+                if (true !== $ok = $this->_onGoodSave($product)) 
+                {
+                    return false;
+                }
                 /**
                  * ставим флаг «обработано» для товара
                  */
@@ -293,4 +304,23 @@ class goodParser extends importParser
             $resource->setTVValue((string)$k, urldecode(($v)));
         }
     }
+    #
+    
+    /** */
+    protected function _onGoodSave(xPDOObject $product) 
+    {
+        /**
+         * invoke resource update event
+         */
+        if ($event = $this->events['save']) 
+        {
+            $response = $this->modx->invokeEvent($event, array(
+                'product' => & $product
+            ));
+            $this->modx->log(1, print_r($response, 1));
+        }
+        return true;
+    }
+    #
+    
 }

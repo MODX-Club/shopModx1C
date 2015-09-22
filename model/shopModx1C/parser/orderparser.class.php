@@ -138,7 +138,8 @@ class orderParser extends importParser
         $rows = array();
         $columns = array(
             "article",
-            "title"
+            "title",
+            "extended"
         );
         #
         
@@ -150,11 +151,16 @@ class orderParser extends importParser
             $article = $good['id'];
             $title = htmlentities($good['title'], ENT_QUOTES);
             #
-            $rows[] = "('{$article}', '{$title}')";
+            
+            /** */
+            $extended = json_encode($this->_prepareGoodProperties($good));
             #
             
-            /**
-             */
+            /** */
+            $rows[] = "('{$article}', '{$title}', '{$extended}')";
+            #
+            
+            /** */
             if ($i % $this->getProperty('linesPerStep') == 0) 
             {
                 if (!$this->insertInDataBase($table, $rows, $columns)) 
@@ -171,4 +177,11 @@ class orderParser extends importParser
     }
     #
     
+    /** */
+    protected function _prepareGoodProperties(array $good) 
+    {
+        return array(
+            'article' => $good['article']
+        );
+    }
 }
