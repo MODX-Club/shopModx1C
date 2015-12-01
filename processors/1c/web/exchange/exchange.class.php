@@ -40,7 +40,11 @@ class mod1cWebExchangeExchangeProcessor extends modProcessor
                 $className = 'mod1cWebExchangeCatalogImportProcessor';
             break;
             default:;
+                $modx->log(xPDO::LOG_LEVEL_ERROR, "Unknown import mode");
+            break;
             }
+        }else{
+            $modx->log(xPDO::LOG_LEVEL_ERROR, "Import mode is not defined");
         }
         return parent::getInstance($modx, $className, $properties);
     }

@@ -5,6 +5,8 @@
 class mod1cimportWebPublicActionProcessor extends modProcessor
 {
     protected static $actualClassName;
+    
+    /**/
     public static function getInstance(modX & $modx, $className, $properties = array()) 
     {
         // Здесь мы имеем возможность переопределить реальный класс процессора
@@ -25,6 +27,9 @@ class mod1cimportWebPublicActionProcessor extends modProcessor
         }
         return parent::getInstance($modx, $className, $properties);
     }
+    # 
+    
+    /**/
     public function process() 
     {
         $error = 'Действие не существует или не может быть выполнено';
@@ -32,5 +37,6 @@ class mod1cimportWebPublicActionProcessor extends modProcessor
         $this->modx->log(xPDO::LOG_LEVEL_ERROR, print_r($this->getProperties() , true));
         return $this->failure($error);
     }
+    # 
 }
 return 'mod1cimportWebPublicActionProcessor';
