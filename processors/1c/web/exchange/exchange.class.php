@@ -1,7 +1,18 @@
 <?php
 class mod1cWebExchangeExchangeProcessor extends modProcessor
 {
+    
+    public function __construct(modX $modx, array $properties){
+        
+        $modx->getService('shopmodx1c', 'classes.Shopmodx1c', MODX_CORE_PATH . 'components/shopmodx1c/model/shopModx1C/');
+        $this->shopmodx1c = &$modx->shopmodx1c;
+        
+        return parent::__construct($modx, $properties);
+    }
+    
     protected $outputData = array();
+    # 
+    
     /**
      * режимы импорта
      */
@@ -13,15 +24,6 @@ class mod1cWebExchangeExchangeProcessor extends modProcessor
      */
     protected $log_success_level = xPDO::LOG_LEVEL_INFO;
     protected $log_failure_level = xPDO::LOG_LEVEL_ERROR;
-    #
-    
-    /**
-     * путь к модулю
-     */
-    protected function getModulePath() 
-    {
-        return MODX_CORE_PATH . "components/shopmodx1c/model/";
-    }
     #
     
     /**
@@ -49,7 +51,7 @@ class mod1cWebExchangeExchangeProcessor extends modProcessor
      */
     public function initialize() 
     {
-        $this->modx->addPackage('shopModx1C', $this->getModulePath());
+        $this->modx->addPackage('shopModx1C', $this->shopmodx1c->getModulePath());
         $this->setDefaultProperties(array(
             "outputCharset" => "CP1251",
         ));
