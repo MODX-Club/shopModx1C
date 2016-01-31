@@ -5,267 +5,500 @@ class goodParser extends importParser
     /**
      * stuff
      */
-    protected $tmpGoodClass = 'Shopmodx1cTmpProduct';
-    #
-    private $debug = false;
+    protected $_goods = array();
+    
+    protected $goodTMPClass = 'Shopmodx1cTmpProduct';
     #
     
-    /**
-     * статусы обработки временных записей
-     */
-    const PROCESSED_STATUS = 1;
-    const UNPROCESSED_STATUS = 0;
-    #
-    
-    /**
-     */
-    public function parseXML($ABS_FILE_NAME) 
-    {
-        $reader = $this->getReader($ABS_FILE_NAME);
-        #
-        return true;
-    }
-    #
-    
-    /** */
+    /**/
     protected $events = array(
         'save' => 'OnShopmodx1cGoodSave'
     );
     #
     
+    /**/
+    protected $groupGoodsByArticle = true;
+    # 
+    
+    /**/
+    public function initialize(){
+        
+        if($group = $this->getProperty('groupGoodsByArticle', false)){
+            $this->groupGoodsByArticle = $good;
+        }
+        
+        return parent::initialize();
+    }
+    # 
+    
     /**
-     */
-    public function saveTMPGoods($processor) 
+     * XMLReader с Expand - DOM/DOMXpath
+     */ 
+    public function parseXML($ABS_FILE_NAME) 
     {
-        $tmpClass = $this->tmpGoodClass;
-        $article_tv_id = $this->modx->getOption('shopmodx1c.article_tv');
-        $image_tv_id = $this->modx->getOption('shopmodx1c.product_image_tv');
-        $currency = $this->modx->getOption('shopmodx.default_currency');
-        $products_template = $this->modx->getOption('shopmodx1c.product_default_template');
-        $limit = $this->getProperty('process_items_per_step');
-        $parent = $this->modx->getOption('shopmodx1c.catalog_root_id');
+        $reader = $this->getReader($ABS_FILE_NAME);
+        
+        while ($reader->read()) 
+        {
+            if ($this->isNode('КоммерческаяИнформация', $reader)) 
+            {
+                while ($reader->read()) 
+                {
+                    if ($this->isNode('Классификатор', $reader)) 
+                    {
+                        $reader->next();
+                    }
+                    # 
+                    elseif ($this->isNode('Каталог', $reader)) 
+                    {
+                        while ($reader->read()) 
+                        {
+                            if ($this->isNode('Товары', $reader)) 
+                            {
+                                while ($reader->read()) 
+                                {
+                                    if ($this->isNode('Товар', $reader)) 
+                                    {                                                          
+                                        
+                                        $this->_goods[] = $this->parseTMPGood($reader);                                                                                    
+                                        
+                                        $reader->next();
+                                        
+                                    }
+                                    if ($this->isNodeEnd('Товары', $reader)) 
+                                    {
+                                        $this->insertTMPGoodsToBD();
+                                        
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }        
+
+        $this->flushGoods();
+
+        if ($this->hasErrors()) 
+        {
+            return false;
+        }
+        #
+        return true;
+    }
+    #
+    
+    /**/
+    protected function parseTMPGood(XMLReader $reader){
+        $xml = $this->getXMLNode($reader);
+        
+        $good = array(
+            'article' => (string)$xml->Артикул,
+            'externalKey' => (string)$xml->Ид,
+            'pagetitle' => (string)$xml->Наименование,
+            'image' => (string)$xml->Картинка,
+            'description' => (string)$xml->Описание,
+        );
+        
+        foreach($xml->ЗначенияРеквизитов->ЗначениеРеквизита as $prop){
+            $value = (string)$prop->Значение;
+            switch((string)$prop->Наименование){
+                case 'Полное наименование':
+                    $good['longtitle'] = $value;    
+                break;
+                case 'Вес':
+                    $good['weight'] = $value;
+                break;                
+            }
+        }
+        
+        if($groups = $xml->Группы){
+            $good['parent'] = json_encode(array((string)$xml->Группы->Ид));
+        }
+        
+        $extended = array();
+        if($xml->БазоваяЕдиница){
+            $extended['unit'] = (string)$xml->БазоваяЕдиница;            
+        }
+        
+        if(count($extended)){
+            $good['extended'] = json_encode($extended);
+        }
+        
+        return $good;
+    }
+    # 
+    
+    /**/
+    protected function insertTMPGoodsToBD(){
+        $i = 0;
+        $table = $this->modx->getTableName($this->goodTMPClass);
+        $rows = array();
+        $columns = array(
+            "article",
+            "externalKey",
+            "title",
+            "longtitle",
+            "description",
+            "image",
+            "groups",
+            "extended",
+            "weight"
+        );
         #
         
-        /**
-         * получаем опцию, содержащую имя уник. идентификатора, для определения уник. ключа импорта
-         */
-        $_keyOption = $this->modx->getOption('shopmodx1c.article_field_name');
-        if (!empty($_keyOption)) 
-        {
-            $_keyField = $this->modx->getObject('Shopmodx1cTmpProperty', array(
-                'title' => $_keyOption
-            ));
-        }
+        /**/
+        $total = count($this->_goods);
+        $step = $this->getProperty('linesPerStep');
+        array_walk($this->_goods, function ($item) use ($table, &$rows, $columns, &$i, $total, $step) 
+        {            
+            $i++;
+            $article = $item['article'] ? $this->modx->quote($item['article']) : "NULL";
+            $externalKey = $item['externalKey'] ? $this->modx->quote($item['externalKey']) : "NULL";
+            $groups = (isset($item['parent']) ? $this->modx->quote($item['parent']) : "NULL");
+            $extended = (isset($item['extended']) ? $this->modx->quote($item['extended']) : "NULL");
+            $title = $this->modx->quote($item['pagetitle']);
+            $longtitle = $this->modx->quote($item['longtitle']);
+            $description = $this->modx->quote($item['description']);
+            $image = $this->modx->quote($item['image']);
+            $weight = $this->modx->quote($item['weight']);
+            #
+            
+            $rows[] = "({$article}, {$externalKey}, {$title}, {$longtitle}, {$description}, {$image}, {$groups}, {$extended}, {$weight})";
+            #
+
+            /**/
+            if ($i % $step == 0 || ($total < $step && $i == $total )) 
+            {
+                if (!$this->insertInDataBase($table, $rows, $columns)) 
+                {
+                    $this->addFieldError('insertToDB', 'Не удалось выполнить запрос');
+                    return false;
+                }
+                $rows = array();                
+            }
+        });
+        #
+
+        return true;        
+    }
+    #
+    
+    /**/
+    protected function flushGoods(){
+        $this->_goods = array();
+    }
+    
+    /**
+     */
+    public function saveTMPRecords() 
+    {
+        $tmpClass = $this->goodTMPClass;
+        $article_tv_id = $this->modx->getOption('shopmodx1c.article_tv_id');
+        $catalog_root_id = $this->modx->getOption('shopmodx1c.catalog_root_id');
+        $catalog_tmp_root_id = $this->modx->getOption('shopmodx1c.tmp_catalog_root_id');
+        $limit = $this->getProperty('process_items_per_step');
+        $product_template = $this->modx->getOption('shopmodx1c.product_default_template');
+        $image_tv_id = $this->modx->getOption('shopmodx1c.product_image_tv');
+        $currency = $this->modx->getOption('shopmodx.default_currency');
+        #
+
         // Получаем первичные данные по не обработанным товарам
         $q = $this->modx->newQuery($tmpClass);
-        // раньше артикул товара забивался в твшку. сейчас мы переносим эти данные в поле доп. таблицы
-        # $q->leftJoin('modTemplateVarResource', 'tv_article', "tv_article.tmplvarid = {$article_tv_id} AND {$tmpClass}.article = tv_article.value");
-        /*
-            В импорте, кроме внутреннего айди товара 1с, передается уникальный идентификатор товара (доп. функционал 1с),
-                т.к. 1с, при обновлении данных, может изменить внутренний айдишник товара.
-            В настройках модуля импорта есть спец. пункт, который хранит название свойства в выгрузке, хранящее новый уникальный айди.
-            В нашей системе этот уникальный айдишник сохраняется, как артикул, при этом мы также храним внутренний айдишник 1с
-            
-            Поля находятся в модели продукта. sm_articul — уник. айди
-            sm_externalKey — для доп. поля
-        */
-        /**
-         * UPD
-         * т.к. мы предусматриваем возможность передачи кастомного айди, то если он у нас указан — пытаемся получать связку временны товар - товар в зивисимости от ключа
-         * если ключ кастомный, то артикул в поле externalKey, нет — основное поле
-         */
-        if (empty($_keyOption)) 
-        {
-            $q->leftJoin('ShopmodxProduct', 'Product', "Product.sm_article = {$tmpClass}.article");
-        }
-        else
-        {
-            $q->leftJoin('ShopmodxProduct', 'Product', "Product.sm_externalKey = {$tmpClass}.article");
-        }
+        $q->leftJoin('ShopmodxProduct', 'Product', "Product.sm_article = {$tmpClass}.article");
         $q->where(array(
             "processed" => self::UNPROCESSED_STATUS,
+            'article is not null'
         ));
         $q->select(array(
             "Product.resource_id as resource_id",
             "{$tmpClass}.*",
         ));
         $q->limit($limit);
+
         # $q->prepare();
         # print $q->toSQL();
         # die;
         
         /**
          * Получаем все товары из 1С
-         */
+         */         
+        $shouldGroupProductsByRule = $this->modx->getOption('shopmodx1c.group_products_by_rule');        
         if ($products = $this->modx->getCollection($tmpClass, $q)) 
         {
             /**
              * logging
              */
-            $processor->logCount($tmpClass, $q, 'goods');
+            $this->logCount($tmpClass, $q, 'goods');
             #
+
             // Проходимся по каждому товару
             foreach ($products as $product) 
             {
-                $article = $product->article;
-                #
                 
-                /**
-                 * if good exists
-                 */
-                if ($_rid = $product->resource_id) 
-                {
-                    $good = $this->modx->getObject('ShopmodxResourceProduct', $_rid);
-                    $this->setTVs($good, $product->extended);
-                }
-                # if not we try to create new product
-                else 
-                {
-                    /**
-                     */
-                    $content = preg_replace("/[\n]/", "<br />\n", $product->description);
-                    $data = array(
-                        "class_key" => "ShopmodxResourceProduct",
-                        "pagetitle" => $product->title,
-                        "content" => $content,
-                        "parent" => $parent,
-                        "template" => $products_template,
-                        "isfolder" => 0,
-                        "sm_currency" => $currency,
-                    );
-                    # print_r($_keyOption);
-                    # # print_r($_keyField->toArray());
-                    # print_r($product->toArray());
-                    # die;
-                    // если в наcтройках указана опция, в которой хранится уник. айди, то решаем какой параметр — основной
-                    if (!empty($_keyOption)) 
-                    {
-                        $data["sm_externalKey"] = $product->article;
-                        $ext = $product->extended;
-                        # $this->modx->log(1,print_r($product->toArray(),1));
-                        # $this->modx->log(1,print_r($data,1));
-                        # if(is_object($_keyField)){
-                        #     $this->modx->log(1,print_r($_keyField->toArray(),1));
-                        # }
-                        # $this->modx->log(1,print_r($ext,1));
-                        # $this->addOutput($product->extended);
-                        # $this->addOutput($ext);
-                        if ($ext && is_object($_keyField)) 
-                        {
-                            $ext = json_decode($ext, 1);
-                            $data["sm_article"] = $ext[$_keyField->article];
-                        }
-                        #
-                        
-                        /**
-                         * if there are errors
-                         */
-                        if (!$data["sm_article"]) 
-                        {
-                            $error = "Не был получен уник. идентификатор товара (артикул) '{$product->article}'";
-                            $this->modx->log(xPDO::LOG_LEVEL_WARN, $error);
-                            $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($product->toArray() , 1));
-                            /**
-                             * ставим флаг «обработано» для товара
-                             */
-                            $processor->processTmpEntity($product);
-                            $processor->addOutput($error);
-                            return $this->failure('failure');
-                        }
-                    }
-                    else
-                    {
-                        $data["sm_article"] = $product->article;
-                    }
-                    #
-                    # print_r($data);
-                    # die;
+                $article = $product->article;                
+                
+                # Если товар найден, то пробуем обновить сам товар.
+                if($rid = $product->resource_id){                    
                     
+                    $data = array(
+                        'longtitle' => $product->longtitle ? $product->longtitle : $product->title    
+                    );
+                    
+                    if(!$data['longtitle']){
+                        $data['longtitle'] = $article;
+                    }
+                    
+                    # Если указано правило группировки, то собираем товары в группы по артикулу
+                    if($shouldGroupProductsByRule){
+                        
+                        if($pos = strpos($article, '.')){                        
+                            $prefix = substr($article, 0, $pos);                                            
+                        }
+                        
+                    }
+                    # 
+                    
+                    $existedResource = $this->modx->getObject('modResource', array('id' => $rid));
+                    $existedProduct = $this->modx->getObject('ShopmodxProduct', array('sm_article'=>$product->article));
+                    
+                    if(isset($prefix) && !$existedResource->pagetitle){
+                        $data['pagetitle'] = $article;
+                    }
+                    if(isset($prefix)){
+                        
+                        if(!$existedProduct->sm_weight){
+                            $existedProduct->set('sm_weight', $product->weight);
+                        }
+                        
+                        if(!$existedResource->pagetitle){
+                            $data['pagetitle'] = $article;
+                        }
+
+                    }
+                    $existedResource->fromArray($data);
+
+                    if(!$existedResource->save()){
+                        $error = "Не удалось обновить ресурс товара с артикулом '{$article}'";
+                        $this->addFieldError('article', $error);
+                        
+                        $product->set('processed', self::PROCESSED_STATUS);
+                        $product->save();                        
+                        continue;
+                    }                      
+                    
+                    if(!$existedProduct->save()){
+                        $error = "Не удалось обновить товар с артикулом '{$article}'";
+                        $this->addFieldError('article', $error);
+                        
+                        $product->set('processed', self::PROCESSED_STATUS);
+                        $product->save();                        
+                        continue;
+                    }                    
+
+                }
+                # Ресурса для товара нет. Следовательно его сделует создать
+                else{            
+                    
+                    if(!$product->groups){
+                        $error = "Не был получен раздел для товара с артикулом '{$article}'";
+                        $this->addFieldError('article', $error);
+                        
+                        $this->modx->setLogTarget('FILE');
+                        $this->modx->log(xPDO::LOG_LEVEL_DEBUG, $error, 'FILE'); 
+                        
+                        $product->set('processed', self::PROCESSED_STATUS);
+                        $product->save();                        
+                        continue;
+                    }else{
+                        $groups = json_decode($product->groups, 1);
+                        
+                        if(!$groups){
+                            $error = "Не был получен раздел для товара с артикулом '{$article}'";
+                            $this->addFieldError('article', $error);
+                            
+                            $this->modx->setLogTarget('FILE');
+                            $this->modx->log(xPDO::LOG_LEVEL_DEBUG, $error, 'FILE'); 
+                            
+                            $product->set('processed', self::PROCESSED_STATUS);
+                            $product->save();                        
+                            continue;
+                        }
+                        
+                        $group = current($groups);                        
+                        
+                    }
+                    
+                    // else
+                    // Проверяем наличие категории в каталоге
+                    if (!$parent = $this->getResourceIdByArticle($group)) 
+                    {
+                        $error = "Не был получен раздел с артикулом '{$group}'";                        
+                        $this->addFieldError('article', $error);
+                        
+                        $this->modx->log(xPDO::LOG_LEVEL_DEBUG, $error, 'FILE');
+                        
+                        $product->set('processed', self::PROCESSED_STATUS);
+                        $product->save(); 
+                        continue;
+                    }                   
+                    
+                    
+                    # Если указано правило группировки, то собираем товары в группы по артикулу
+                    if($shouldGroupProductsByRule){
+                        
+                        if($pos = strpos($article, '.')){                        
+                            $prefix = substr($article, 0, $pos);                                            
+                        }
+                        
+                    }
+                    # 
+
+                    $content = preg_replace("/[\n]/", "<br />\n", $product->description);
+                    
+                    # Если есть префикс, то нужно создать ресурс, в котором будут группироваться товары                    
+                    if(isset($prefix)){
+                        $data = array(
+                            'class_key' => 'ShopmodxResourceProduct',
+                            'pagetitle' => $prefix,
+                            'longtitle' => $product->longtitle ? $product->longtitle : $product->title,
+                            "content" => $content,
+                            "parent" => $parent,
+                            "template" => $product_template,
+                            "isfolder" => 0
+                        );                                                                        
+                        
+                        
+                        $existed_resource = $this->modx->getObject('modResource', array('pagetitle' => $prefix));
+                    }else{
+                        $data = array(
+                            "class_key" => "ShopmodxResourceProduct",
+                            "pagetitle" => $product->title ? $product->title : $article,
+                            'longtitle' => $product->longtitle ? $product->longtitle : $product->title,
+                            "content" => $content,
+                            "parent" => $parent,
+                            "template" => $product_template,
+                            "isfolder" => 0,
+                            # "tv{$article_tv_id}"      => $article,
+                            
+                        );                        
+                    }  
+                                                            
+                    $data["sm_article"] = $product->article;
+                    $data["sm_weight"] = $product->weight;
+                    $data['name'] = $data['longtitle'];
+                    $data['alias'] = !isset($prefix) ? ($data['longtitle'] . '-' . $product->article) : ($data['longtitle'] . '-' . $prefix) ;
                     /**
                      * check the image
                      */
                     if ($product->image && $image_tv_id) 
                     {
-                        $data["tv{$image_tv_id}"] = $product->image;
+                        # $data["tv{$image_tv_id}"] = $product->image;
                     }
                     # else
+
                     
-                    /**
-                     * resource creating
-                     */
-                    if (!$response = $this->modx->runProcessor('resource/create', $data)) 
-                    {
-                        $error = "Ошибка выполнения процессора";
-                        $this->modx->log(xPDO::LOG_LEVEL_WARN, $error);
-                        $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($product->toArray() , 1));
-                        $processor->addOutput($error);
-                        #
+                    # Перед созданием ресурса нам необходимо проверить на существование ресурса с нужным нам заголовком, соответствующим префиксу артикула.
+                    # Если таковой есть, то создаем к нему товар в связку. Нет — создаем и ресурс и товар                    
+                                        
+                    if(isset($prefix) && is_object($existed_resource)){                                            
                         
-                        /**
-                         * ставим флаг «обработано» для товара
-                         */
-                        $processor->processTmpEntity($product);
-                        return $this->failure('failure');
-                        # continue;
+                        unset($data['class_key']);
+                        $data['parent'] = $existed_resource->id;
+                        $data['name'] = $data['longtitle'];
                         
-                    }
-                    //else
-                    if ($response->isError()) 
-                    {
-                        if (!$error = $response->getMessage()) 
-                        {
-                            $error = "Не удалось создать товар с артикулом '{$article}'";
-                        }
-                        $this->modx->log(xPDO::LOG_LEVEL_WARN, $error);
-                        $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($product->toArray() , 1));
-                        $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($response->getResponse() , true));
-                        $processor->addOutput($error);
-                        /**
-                         * ставим флаг «обработано» для товара
-                         */
-                        $processor->processTmpEntity($product);
-                        return $this->failure('failure');
-                        # continue;
                         
-                    }
-                    /*
-                     * если объект успешно создан — набиваем твшки;
-                    */
-                    else 
-                    {
-                        $data = $response->getObject();
-                        $resource = $this->modx->getObject('ShopmodxResourceProduct', $data['id']);
-                        if (!$resource) 
-                        {
-                            $error = "Не был получен объект товара после создания оного. артикул: '{$product->article}'. Значения тв-параметров не будут обновлены";
-                            $this->modx->log(xPDO::LOG_LEVEL_WARN, $error);
-                            $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($product->toArray() , 1));
-                            $processor->addOutput($error);
-                            /**
-                             * ставим флаг «обработано» для товара
-                             */
-                            $processor->processTmpEntity($product);
-                            return $this->failure('failure');
-                            # continue;
+                        $newProduct = $this->modx->newObject('ShopmodxProduct');
+                        $newProduct->fromArray($data);
+                        
+                        $newProduct->set('resource_id', $existed_resource->id);                        
+                        
+                        if(!$newProduct->save()){
+                            $error = "Не удалось создать товар с артикулом '{$article}'";                        
+                            $this->addFieldError('article', $error);
                             
+                            $product->set('processed', self::PROCESSED_STATUS);
+                            $product->save(); 
+                            continue;
                         }
-                        else
+                        
+                    }else{
+                        
+                        /**
+                         * resource creating
+                         */
+                        if (!$response = $this->modx->runProcessor('resource/create', $data)) 
                         {
-                            $this->setTVs($resource, $product->extended);
+                            $error = "Ошибка выполнения процессора";                            
+                            $this->addFieldError('processor', $error);
+                            
+                            
+                            $this->modx->log(xPDO::LOG_LEVEL_DEBUG, $error, 'FILE', __CLASS__, "", __LINE__);
+                            
+                            $product->set('processed', 3);
+                            $product->save(); 
+                            continue;                            
                         }
+                        //else
+                        if ($response->isError()) 
+                        {                                                        
+                            if (!$error = $response->getMessage()) 
+                            {
+                                $error = "Не удалось создать товар с артикулом '{$article}'";
+                            }
+                            $resp = $response->getResponse();
+                            $this->addFieldError('response', $error);
+                            
+                            $this->modx->log(xPDO::LOG_LEVEL_DEBUG, $error, 'FILE', __CLASS__, "", __LINE__);                            
+                            $this->modx->log(xPDO::LOG_LEVEL_DEBUG, $error . print_r($response->getResponse()['errors'],1), 'FILE', __CLASS__, "", __LINE__);                            
+   
+                            $product->set('processed', 3);
+                            $product->save(); 
+                            continue;                             
+                        }
+                        /*
+                         * если объект успешно создан — набиваем твшки;
+                        */
+                        else 
+                        {
+                            # $data = $response->getObject();
+                            # $resource = $this->modx->getObject('ShopmodxResourceProduct', $data['id']);
+                            # if (!$resource) 
+                            # {
+                            #     $error = "Не был получен объект товара после создания оного. артикул: '{$product->article}'. Значения тв-параметров не будут обновлены";
+                            #     $this->modx->log(xPDO::LOG_LEVEL_WARN, $error);
+                            #     $this->modx->log(xPDO::LOG_LEVEL_WARN, print_r($product->toArray() , 1));
+                            #     $processor->addOutput($error);
+                            #     /**
+                            #      * ставим флаг «обработано» для товара
+                            #      */
+                            #     $processor->processTmpEntity($product);
+                            #     return $this->failure('failure');
+                            #     # continue;
+                            #     
+                            # }
+                            # else
+                            # {
+                            #     $this->setTVs($resource, $product->extended);
+                            # }
+                        }                           
                     }
+                    
                 }
-                #
-                var_dump($_rid);
-                /** */
-                if (true !== $ok = $this->_onGoodSave($product)) 
-                {
-                    return false;
-                }
+                
+                $prefix = null;
+                
                 /**
                  * ставим флаг «обработано» для товара
                  */
-                $processor->processTmpEntity($product);
+                $product->set('processed', self::PROCESSED_STATUS);
+                if(!$product->save()){
+                    $error = 'Не удалось обновить временный товар';
+                    $this->addFieldError('processed', $error);
+                    continue;
+                }
             }
             #
             
@@ -317,10 +550,68 @@ class goodParser extends importParser
             $response = $this->modx->invokeEvent($event, array(
                 'product' => & $product
             ));
-            $this->modx->log(1, print_r($response, 1));
+            
+            if($this->getProperty('debug')){
+                $this->modx->log(xPDO::LOG_LEVEL_DEBUG, print_r($response, 1), '', __CLASS__);                
+            }
+            
         }
-        return true;
+        
+        if(current($response) == true){
+            return true;
+        }
+        
+        return false;
     }
     #
     
+    public function customProcess(){
+        $tmpClass = $this->goodTMPClass;
+        $article_tv_id = $this->modx->getOption('shopmodx1c.article_tv_id');
+        $catalog_root_id = $this->modx->getOption('shopmodx1c.catalog_root_id');
+        $catalog_tmp_root_id = $this->modx->getOption('shopmodx1c.tmp_catalog_root_id');
+        $limit = $this->getProperty('process_items_per_step');
+        $product_template = $this->modx->getOption('shopmodx1c.product_default_template');
+        $image_tv_id = $this->modx->getOption('shopmodx1c.product_image_tv');
+        $currency = $this->modx->getOption('shopmodx.default_currency');
+        #
+
+        // Получаем первичные данные по не обработанным товарам
+        $q = $this->modx->newQuery($tmpClass);
+        $q->leftJoin('ShopmodxProduct', 'Product', "Product.sm_article = {$tmpClass}.article");
+        $q->where(array(
+            "processed" => self::PROCESSED_STATUS,
+            'article is not null',
+            'Product.resource_id is not null'
+        ));
+        $q->select(array(
+            "Product.resource_id as resource_id",
+            "{$tmpClass}.*",
+        ));
+        $q->limit($limit);
+        
+        if ($products = $this->modx->getCollection($tmpClass, $q)) 
+        {
+            foreach($products as $product){                
+                
+                $ok = $this->_onGoodSave($product);
+
+                if($ok !== true){
+                    $this->addFieldError('event', 'error');
+                }
+                
+                $product->set('processed', self::UNPROCESSED_STATUS);
+                $product->save();                                    
+                
+                continue;
+            }
+            
+        }
+        
+        if($this->hasErrors()){
+            return false;
+        }
+        return true;
+    
+    }
 }

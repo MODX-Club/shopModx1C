@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/exchange.class.php';
+
 class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
 {
     /**
@@ -39,11 +40,7 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
     const UNPROCESSED_STATUS = 0;
     #
     
-    /**
-     * import modes
-     */
-    // debug mode
-    protected $debug = true;
+
     // this is 4 deep debugging (session, file props, etc…)
     protected $debugDeep = false;
     #
@@ -51,7 +48,7 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
     /**
      * Метод формарования успешного/ошибочного ответа на сторону 1С (хотя обертки — плохо, но приходится много раз вызывать эти оба метода. поэтому вводим метод-обертку)
      */
-    public function end($flag, $msg = '') 
+    public function end($flag = false, $msg = '') 
     {
         if ($flag) 
         {
@@ -72,12 +69,13 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
             return $this->end(false, 'Mode does not exists');
         }
         #
-        
+
         /**
          * debug
          */
-        if ($this->debug) 
+        if ($debug = $this->getProperty('debug', false)) 
         {
+            $this->debug = $debug;
             $this->modx->setLogLevel(xPDO::LOG_LEVEL_DEBUG);
         }
         #
@@ -102,7 +100,9 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
         
         /**
          */
-        $this->loadParsers();
+        if($this->loadParsers() !== true){
+            return $this->end(false, 'Can\'t load parser');
+        }
         #
         
         /**
@@ -121,6 +121,7 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
      */
     protected function loadParsers() 
     {
+        return true;
     }
     #
     
@@ -129,8 +130,6 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
      */
     public function addOutput($string) 
     {
-        $this->modx->log($this->log_success_level, $string);
-        #
         if ($this->convertToTranslit) 
         {
             $this->modx->getService('translit', $this->modx->getOption('friendly_alias_translit_class') , $this->modx->getOption('friendly_alias_translit_class_path'));
@@ -167,7 +166,6 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
             $this->modx->log(xPDO::LOG_LEVEL_DEBUG, print_r($_SESSION['SM_1C_IMPORT'], true));
         }
         #
-        
         /**
          * authorization
          */
@@ -201,7 +199,7 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
         if (!$this->modx->user->isAuthenticated($this->modx->context->key)) 
         {
             $this->addOutput("ERROR_AUTHORIZE");
-            return $this->failure('failure');
+            return $this->end(false);
         }
         # else
         
@@ -221,9 +219,9 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
             /**
              * check the settings
              */
-            if (!$this->modx->getOption('shopmodx1c.article_tv')) 
+            if (!$this->modx->getOption('shopmodx1c.article_tv_id')) 
             {
-                $error = "Не указан ID TV-параметра для артикулов 1С";
+                $error = "Не указан ID поля артикула";
                 return $this->end(false, $error);
             }
             if (!$this->modx->getOption('shopmodx1c.catalog_root_id')) 
@@ -353,7 +351,7 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
             # else
             $_SESSION["SM_1C_IMPORT"]["zip"] = false;
             $this->addOutput("Распаковка архива завершена");
-            return $this->success("progress");
+            return $this->end(true, 'progress');
         }
         #
         
@@ -365,18 +363,26 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
             $NS = & $_SESSION["SM_1C_IMPORT"]["NS"];
             $strError = "";
             $strMessage = "";
-            $this->modx->log(xPDO::LOG_LEVEL_INFO, "STEP: " . $NS["STEP"]);
+            
+            if($this->debug){
+                $this->modx->log(xPDO::LOG_LEVEL_INFO, "STEP: " . $NS["STEP"]);
+            }
+            # 
+            
             /**
              * define all steps
              */
-            $this->setSteps($ABS_FILE_NAME, $NS, $strMessage, $strError);
+            $this->setSteps($NS, $ABS_FILE_NAME, $strMessage, $strError);
             #
+            
             return $this->success('progress');
         }
-        else if ($mode = 'deactivate') 
+        else if ($mode == 'deactivate') 
         {
             $msg = 'Завершение импорта. Очистка таблиц…';
-            $this->modx->log(xPDO::LOG_LEVEL_INFO, $msg);
+            if($this->debug){
+                $this->modx->log(xPDO::LOG_LEVEL_INFO, $msg);
+            }
             #
             
             /**
@@ -389,7 +395,8 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
              * Очищаем импорт-директорию
              */
             $this->clearImportDir();
-            #
+            # 
+            
             return $this->end(true, 'success');
         }
         else
@@ -406,10 +413,10 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
     
     /**
      */
-    protected function setSteps(&$NS, &$strMessage, &$strError) 
+    protected function setSteps(&$NS, $ABS_FILE_NAME, &$strMessage, &$strError) 
     {
         switch ($NS["STEP"]) 
-        {
+        {            
         default:
             return $this->end(true, 'success');
         break;
@@ -435,12 +442,15 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
         $this->addOutput("{$count} {$name} left…");
     }
     #
-    # метод завершения обработки временной сущности
+    
+    /**
+     * метод завершения обработки временной сущности
+    */
     public function processTmpEntity(xPDOObject & $object, $status = self::PROCESSED_STATUS) 
     {
         if (!$status) 
         {
-            $this->modx->log(xPDO::LOG_LEVEL_ERROR, 'Не получен статус завершения операции');
+            $this->modx->log(xPDO::LOG_LEVEL_ERROR, 'Не получен статус завершения операции', '', __CLASS__);
             return false;
         }
         $object->set('processed', $status);
@@ -451,5 +461,60 @@ class mod1cWebExchangeImportProcessor extends mod1cWebExchangeExchangeProcessor
         }
         return true;
     }
+    # 
+    
+    /**
+     * Очистка временной директории
+    */
+    protected function clearImportDir() 
+    {
+        if (!$this->removeTmpFiles) 
+        {
+            return;
+        }
+        #
+        $DIR_NAME = $this->getProperty('DIR_NAME');
+        $this->modx->loadClass('modCacheManager', '', true, false);
+        $modCacheManager = new modCacheManager($this->modx);
+        $options = array(
+            'deleteTop' => false,
+            'skipDirs' => false,
+            'extensions' => false,
+            'delete_exclude_items' => array(
+                '.gitignore',
+            ) ,
+        );
+        $r = $modCacheManager->deleteTree($DIR_NAME, $options);
+        return;
+    }
+    #
+    
+    /**
+     * Очистка таблиц
+     */
+    protected function clearTmpTables() 
+    {
+        if (!$this->clearTmpTables) 
+        {
+            return;
+        }
+        #
+        $classes = array(
+            $this->tmpCategoriesClass,
+            $this->tmpProductsClass,
+            $this->tmpPropertiesClass,
+            $this->tmpPropertyValuesClass,
+            $this->tmpPriceClass,
+            $this->tmpPriceTypeClass,
+        );
+        foreach ($classes as $class) 
+        {
+            if ($table = $this->modx->getTableName($class)) 
+            {
+                $this->modx->exec("TRUNCATE TABLE {$table}");
+            }
+        }
+    }
+    # 
 }
 return 'mod1cWebExchangeImportProcessor';
