@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/importparser.class.php';
+
 class priceParser extends importParser
 {
     /**
@@ -7,261 +8,163 @@ class priceParser extends importParser
      */
     protected $tmpPriceClass = 'Shopmodx1cTmpPrice';
     protected $tmpPriceTypeClass = 'Shopmodx1cTmpPriceType';
-    protected $priceName = '# Рекомендованная розница';
     #
     private $_prices = array();
     private $_priceTypes = array();
-    /**
-     * XMLReader с Expand - DOM/DOMXpath
-     */
-    public function parseXML($ABS_FILE_NAME) 
-    {
-        $reader = $this->getReader($ABS_FILE_NAME);
-        #
+    # 
+    
+    protected function getJsonSchema($schema_name){
+        return json_decode($this->modx->getOption("shopmodx1c.{$schema_name}", '{}',1));
+    }
+    
+    protected function getSchemaNodeByKey(& $schema, $nodeKey){                    
         
-        /**
-         */
-        while ($reader->read()) 
-        {
-            if ($this->isNode('КоммерческаяИнформация', $reader)) 
-            {
-                while ($reader->read()) 
-                {
-                    /**
-                     * обрабатываем классификатор со справочником данных и мер
-                     */
-                    if ($this->isNode('Классификатор', $reader)) 
-                    {
-                        while ($reader->read()) 
-                        {
-                            /**
-                             * парсим «типы цен»
-                             */
-                            if ($this->isNode('ТипыЦен', $reader)) 
-                            {
-                                while ($reader->read()) 
-                                {
-                                    if ($this->isNode('ТипЦены', $reader)) 
-                                    {
-                                        $xml = $this->getXMLNode($reader);
-                                        #
-                                        
-                                        /**
-                                         * На данный момент мы парсим всего лишь одну цену.
-                                         * Множественные цены на подходе : )
-                                         */
-                                        if ($xml->Наименование == $this->priceName) 
-                                        {
-                                            $this->saveTMPPriceType((array)$xml);
-                                        }
-                                    }
-                                    #
-                                    
-                                    /**
-                                     * break the while when we have the end of subtree
-                                     */
-                                    if ($this->isNodeEnd('ТипыЦен', $reader)) 
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                            #
-                            
-                            /**
-                             * skip wrong trees
-                             */
-                            if ($this->isNode('Группы', $reader) || $this->isNode('Свойства', $reader) || $this->isNode('Склады', $reader) || $this->isNode('ЕдиницыИзмерения', $reader)) 
-                            {
-                                $reader->next();
-                            }
-                            #
-                            
-                            /**
-                             * break the while when we have the end of subtree
-                             */
-                            if ($this->isNodeEnd('Классификатор', $reader)) 
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    #
-                    
-                    /**
-                     * парсим справочник предложений со списком возможных вариантов цен
-                     */
-                    elseif ($this->isNode('ПакетПредложений', $reader)) 
-                    {
-                        while ($reader->read()) 
-                        {
-                            /**
-                             * Парсим предложения
-                             */
-                            if ($this->isNode('Предложения', $reader)) 
-                            {
-                                while ($reader->read()) 
-                                {
-                                    /**
-                                     */
-                                    if ($this->isNode('Предложение', $reader)) 
-                                    {
-                                        while ($reader->read()) 
-                                        {
-                                            if ($this->isNode('Ид', $reader)) 
-                                            {
-                                                # if we catch "Ид" node we try to get it's value
-                                                $reader->read();
-                                                $goodId = $reader->value;
-                                            }
-                                            #
-                                            
-                                            /**
-                                             */
-                                            if ($this->isNode('Цены', $reader)) 
-                                            {
-                                                while ($reader->read()) 
-                                                {
-                                                    if ($this->isNode('Цена', $reader)) 
-                                                    {
-                                                        $price = (array)$this->getXMLNode($reader);
-                                                        #
-                                                        
-                                                        /**
-                                                         * parse price value
-                                                         */
-                                                        $this->saveTMPPriceValue($goodId, $price);
-                                                    }
-                                                    #
-                                                    
-                                                    /**
-                                                     */
-                                                    if ($this->isNodeEnd('Цены', $reader)) 
-                                                    {
-                                                        break;
-                                                    };
-                                                }
-                                            }
-                                        }
-                                        #
-                                        
-                                        /**
-                                         */
-                                        if ($this->isNodeEnd('Предложение', $reader)) 
-                                        {
-                                            break;
-                                        }
-                                    }
-                                    #
-                                    
-                                    /**
-                                     */
-                                    if ($this->isNodeEnd('Предложения', $reader)) 
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                            #
-                            
-                            /**
-                             */
-                            if ($this->isNodeEnd('ПакетПредложений', $reader)) 
-                            {
-                                break;
-                            }
-                        }
-                        #
-                        
-                        /**
-                         * try to insert all the prices
-                         */
-                        $this->insertTMPPricesToDB();
-                    }
-                    else if ($this->isNode('Каталог', $reader)) 
-                    {
-                        $reader->next();
-                    }
-                    else if (!$reader->name == '#text') 
-                    {
-                        $this->modx->log(xPDO::LOG_LEVEL_INFO, 'Some parent xml trees were skipped');
-                    }
-                }
-            }
+        if(!is_object($schema)){
+            return null;
         }
-        #
-        if ($this->hasErrors()) 
-        {
+        
+        $keys = array_keys((array)$schema);
+        
+        if(count($keys) == 1 && $nodeKey == current($keys)){
+            $schema = $schema->$nodeKey;            
+        }
+        
+        return $schema;
+    }
+    
+    public function parseXML($ABS_FILE_NAME){
+        $schema = $this->getJsonSchema('json_schema_price');
+        $reader = $this->getReader($ABS_FILE_NAME);
+        #        
+        
+        /**/
+        while ($reader->read()){
+            
+            $node = $this->getNodeName($reader);            
+            
+            if(!$this->isNodeText($reader) && $this->getSchemaNodeByKey($schema, $node)){                                
+
+                if(isset($schema->parse) && $schema->parse){
+                    
+                    $xml = $this->getXMLNode($reader);                    
+                    
+                    $result = $this->parseTMPPrice($reader, $schema);
+                    if(count($result)){
+                        $this->_prices[] = $result;                                            
+                    }       
+                    
+                    $reader->next();                                 
+                }                               
+                
+            }            
+        }
+        
+
+        if($this->hasErrors()){
             return false;
         }
-        return true;
-    }
-    #
-    
-    /**
-     * save price type
-     */
-    public function saveTMPPriceType(array $xml) 
-    {
-        $data = array(
-            'article' => $xml['Ид']
-        );
-        #
         
-        /**
-         */
-        if (!$priceType = $this->modx->getObject($this->tmpPriceTypeClass, $data)) 
-        {
-            $priceType = $this->modx->newObject($this->tmpPriceTypeClass);
-            $priceType->fromArray($data);
-        }
-        $priceType->save();
+        $this->insertTMPPricesToDB();
+        $this->_prices = array();
+        
+        return true;
+        
     }
-    #
     
-    /**
-     * save price value
-     */
-    public function saveTMPPriceValue($goodId, array $price) 
-    {
-        $this->_prices[] = array(
-            'value' => $price['ЦенаЗаЕдиницу'],
-            'type_id' => $price['ИдТипаЦены'],
-            'good_id' => $goodId
-        );
+    protected function parseMultipleObjectInstances($xml, $nodeKey, $schema, & $_price){
+        foreach($xml->$nodeKey as $v){                        
+            
+            $validateRules = $schema->$nodeKey->validate;
+            if($validateRules){
+                
+                if($validateRules->cond == 'gt:0'){                            
+                    $validateKey = $validateRules->key;
+                    
+                    if(isset($v->$validateKey) && $v->$validateKey <= 0){
+                        continue;
+                    }
+                }                                                      
+            }            
+
+            array_walk($schema->$nodeKey, function($node, $key) use (& $v, & $_price){
+  
+                if(!isset($v->$key)){
+                    return;
+                }else{
+                    $value = $v->$key;
+                }                
+                
+                if(isset($node->type)){
+                    settype($value, $node->type);
+                }
+                
+                $_price[isset($node->field) ? $node->field : $key] = $value;                
+            });
+    
+        } 
+        
+        return $_price;
     }
-    #
     
-    /**
-     * insert prices to the database
-     */
-    public function insertTMPPricesToDB() 
-    {
+    protected function parseTMPPrice($reader, stdClass $schema){
+        $xml = $this->getXMLNode($reader);
+        $_price = array();        
+        
+        $schemaArray = (array)$schema;
+        array_walk($schemaArray, function($schemaNode, $schemaKey) use (& $_price, $xml, $schema){
+
+            if(is_object($schemaNode) && ($value = $xml->$schemaKey)){
+                $firstIndex = current(array_keys((array)$value));                
+                
+                if($firstIndex === 0){
+                    
+                    if(isset($schemaNode->type)){
+                        settype($value, $schemaNode->type);
+                    }
+                    $_price[isset($schemaNode->field) ? $schemaNode->field : $schemaKey] = $value; 
+                }else{
+                    
+                    $_price = $this->parseMultipleObjectInstances($value, $firstIndex, $schema->$schemaKey, $_price);
+                    
+                }
+                
+            }                                    
+        });
+
+        return $_price;
+    }
+    
+    protected function insertTMPPricesToDB(){                
         $i = 0;
         $table = $this->modx->getTableName($this->tmpPriceClass);
         $rows = array();
         $columns = array(
-            "value",
+            "article",
             "type_id",
             "good_id",
+            "value",
+            "currency_name"
         );
         #
         
-        /**
-         */
-        array_walk($this->_prices, function ($price) use ($table, &$rows, $columns, &$i) 
+        /**/
+        $total = count($this->_prices);
+        $step = $this->getProperty('linesPerStep');
+        array_walk($this->_prices, function ($price) use ($table, &$rows, $columns, &$i, $step, $total) 
         {
             $i++;
-            $type_id = $price['type_id'];
-            $good_id = ($price['good_id'] ? "'{$price['good_id']}'" : "NULL");
-            $value = (float)$price['value'];
+            $type_id = isset($price['type_id']) ? $price['type_id'] : "NULL";
+            $good_id = (isset($price['good_id']) ? "{$price['good_id']}" : "NULL");
+            $article = (isset($price['article']) ? "{$price['article']}" : "NULL");
+            $currency_name = (isset($price['currency_name']) ? "{$price['currency_name']}" : "RUR");
+            $value = isset($price['value']) ? (float)$price['value'] : 0;
             #
-            $rows[] = "('{$value}', '{$type_id}', {$good_id})";
+            $rows[] = "('{$article}', '{$type_id}', '{$good_id}', '{$value}', '{$currency_name}')";
             #
-            
+
             /**
              */
-            if ($i % $this->getProperty('linesPerStep') == 0) 
+            if ($i % $step == 0 || ($total < $step && $i == $total )) 
             {
                 if (!$this->insertInDataBase($table, $rows, $columns)) 
                 {
@@ -272,55 +175,202 @@ class priceParser extends importParser
             }
         });
         #
-        $this->_prices = array();
         return true;
     }
-    #
     
-    /**
-     * save prices
-     */
-    public function savePrices() 
-    {
-        $c = $this->modx->newQuery($this->tmpPriceClass);
-        $ck = $c->getAlias();
-        $c->innerJoin($this->tmpPriceTypeClass, 'PriceType', "{$ck}.type_id = PriceType.article");
-        #
+    public function saveTMPRecords(){
         
-        /**
-         */
-        #  $_keyOption = $this->modx->getOption('shopmodx1c.article_field_name');
-        # if (!empty($_keyOption))
-        # {
-        #     $c->innerJoin('ShopmodxProduct', 'Product', "{$ck}.good_id = product.sm_article");
-        # }
-        # else{
-        #     $c->innerJoin('ShopmodxProduct', 'Product', "{$ck}.good_id = product.sm_externalKey");
-        # }
-        $c->innerJoin('ShopmodxProduct', 'Product', "{$ck}.good_id = Product.sm_externalKey");
-        $c->where(array(
-            "processed" => 0
-        ));
+        $tmpClass = $this->tmpPriceClass;
+        $article_tv_id = $this->modx->getOption('shopmodx1c.article_tv_id');
+        $catalog_root_id = $this->modx->getOption('shopmodx1c.catalog_root_id');
+        $catalog_tmp_root_id = $this->modx->getOption('shopmodx1c.tmp_catalog_root_id');
+        $limit = $this->getProperty('process_items_per_step');
+        $product_template = $this->modx->getOption('shopmodx1c.product_default_template');
+        $image_tv_id = $this->modx->getOption('shopmodx1c.product_image_tv');
+        $currency = $this->modx->getOption('shopmodx.default_currency');
         #
-        # $c->prepare();
-        # print $c->toSQL();
-        # $this->modx->log(5, print_r($c->toSQL()));
-        # $this->modx->log(5, print_r($this->modx->getCount($this->tmpPriceClass, $c)));
-        # die;
-        foreach ($this->modx->getCollection($this->tmpPriceClass, $c) as $price) 
+
+        // Получаем первичные данные по не обработанным товарам
+        $q = $this->modx->newQuery($tmpClass);
+        $q->leftJoin('ShopmodxProduct', 'Product', "Product.sm_article = {$tmpClass}.article");
+        $q->leftJoin('Shopmodx1cTmpProduct', "TMPProduct", "TMPProduct.externalKey = {$tmpClass}.good_id");
+        $q->where(array(
+            "processed" => self::UNPROCESSED_STATUS,
+        ));
+        $q->select(array(
+            "Product.resource_id as resource_id",
+            "Product.id as product_id",
+            "IF(TMPProduct.longtitle != '', TMPProduct.longtitle,{$tmpClass}.article) as product_name",
+            "{$tmpClass}.*",
+        ));
+        $q->limit($limit);
+
+#         $q->prepare();
+#         print $q->toSQL();
+#         die;        
+        
+        if ($prices = $this->modx->getCollection($tmpClass, $q)) 
         {
-            $goodId = $this->modx->getObject('ShopmodxProduct', array(
-                'sm_externalKey' => $price->good_id
-            ));
-            # $this->modx->log(1,print_r($goodId->toArray()))
-            if ($goodId) 
-            {
-                $goodId->set('sm_price', $price->get('value'));
-                $goodId->save();
+        
+            foreach($prices as $price){
+                
+                $article = $price->article;
+                
+                if($pid = $price->product_id){
+                    
+                    $sm_currency_name = $price->currency_name;
+                    if($sm_currency_name == 'руб' || !$sm_currency_name){
+                        $sm_currency_name = 'RUR';
+                    }
+                    
+                    $data = array(
+                        'sm_price' => $price->value,
+                        'sm_currency' => $this->modx->getObject('modResource', array('parent' => 78, 'pagetitle' => $sm_currency_name))->id,
+                        'name' => $price->product_name
+                    );    
+
+                    $product = $this->modx->getObject('ShopmodxProduct', $pid);
+                    
+                    $product->fromArray($data);
+                    if(!$product->save()){
+                        $error = "Не удалось обновить товар c артикулом {$price->article}";
+                        $this->addFieldError('processed', $error);
+                        
+                        $price->set('processed', self::PROCESSED_STATUS);
+                        $price->save();
+                        continue;
+                    }
+                    
+                }else{
+                    
+                    if ($catalog_tmp_root_id) 
+                    {
+                        $catalog_root_id = $catalog_tmp_root_id;
+                    }
+                    
+                    $parent = $catalog_root_id;
+                    
+                    $shouldGroupProductsByRule = $this->modx->getOption('shopmodx1c.group_products_by_rule');  
+                                                            
+                    # Если указано правило группировки, то собираем товары в группы по артикулу
+                    if($shouldGroupProductsByRule){
+                        
+                        if($pos = strpos($article, '.')){                        
+                            $prefix = substr($article, 0, $pos);                                            
+                        }
+                        
+                    }
+                    # 
+                    
+                    $content = preg_replace("/[\n]/", "<br />\n", $price->description);
+                    
+                    if(isset($prefix)){
+                        
+                        $data = array(
+                            'class_key' => 'ShopmodxResourceProduct',
+                            'pagetitle' => $prefix,
+                            'longtitle' => $price->longtitle ? $price->longtitle : $price->title,
+                            "content" => $content,
+                            "parent" => $price,
+                            "template" => $product_template,
+                            "isfolder" => 0
+                        );                                                                        
+                        
+                        $existed_resource = $this->modx->getObject('modResource', array('pagetitle' => $prefix));                        
+                        
+                    }else{
+                                                
+                        $data = array(
+                            "class_key" => "ShopmodxResourceProduct",
+                            "pagetitle" => $price->title ? $price->title : $article,
+                            'longtitle' => $price->longtitle ? $price->longtitle : $price->title,
+                            "content" => $content,
+                            "parent" => $parent,
+                            "template" => $product_template,
+                            "isfolder" => 0
+                            
+                        );     
+                    }
+                    
+                    $sm_currency_name = $price->currency_name;
+                    if($sm_currency_name == 'руб' || !$sm_currency_name){
+                        $sm_currency_name = 'RUR';
+                    }
+                    
+                    $data["sm_article"] = $article;
+                    $data['name'] = $data['longtitle'];
+                    $data['sm_price'] = $price->value;
+                    $data['sm_currency'] = $this->modx->getObject('modResource', array('parent' => 78, 'pagetitle' => $sm_currency_name))->id;
+                    $data['alias'] = isset($prefix) ? ($data['longtitle'] . '-' . $prefix) : ($data['longtitle'] . '-' . $article);
+                    
+                    # Перед созданием ресурса нам необходимо проверить на существование ресурса с нужным нам заголовком, соответствующим префиксу артикула.
+                    # Если таковой есть, то создаем к нему товар в связку. Нет — создаем и ресурс и товар                    
+                    
+                    if(isset($existed_resource) && is_object($existed_resource)){                                            
+                        
+                        unset($data['class_key']);
+                        $data['parent'] = $existed_resource->id;
+                        $data['name'] = $data['longtitle'];
+                        
+                        $newProduct = $this->modx->newObject('ShopmodxProduct');
+                        $newProduct->fromArray($data);
+                        
+                        $newProduct->set('resource_id', $existed_resource->id);                        
+                        
+                        if(!$newProduct->save()){
+                            $error = "Не удалось создать товар с артикулом '{$article}'";                        
+                            $this->addFieldError('article', $error);
+                            
+                            $price->set('processed', self::PROCESSED_STATUS);
+                            $price->save(); 
+                            continue;
+                        }
+                        
+                    }else{
+                        
+                        /**
+                         * resource creating
+                         */
+                        if (!$response = $this->modx->runProcessor('resource/create', $data)) 
+                        {
+                            $error = "Ошибка выполнения процессора";                            
+                            $this->addFieldError('processor', $error);
+                            
+                            $price->set('processed', self::PROCESSED_STATUS);
+                            $price->save(); 
+                            continue;                            
+                        }
+                        //else
+                        if ($response->isError()) 
+                        {
+                            if (!$error = $response->getMessage()) 
+                            {
+                                $error = "Не удалось создать товар с артикулом '{$article}'";
+                            }
+                            $this->addFieldError('response', $error);
+                            
+                            $price->set('processed', self::PROCESSED_STATUS);
+                            $price->save(); 
+                            continue;                             
+                        }
+                        
+                    }
+                  
+                }
+                
+                $prefix = null;
+        
+                /**
+                 * ставим флаг «обработано» для товара
+                 */
+                $price->set('processed', self::PROCESSED_STATUS);
+                if(!$price->save()){
+                    $error = 'Не удалось обновить временный товар';
+                    $this->addFieldError('processed', $error);
+                    continue;
+                }
             }
-            $price->set('processed', 1);
-            $price->save();
         }
-        return true;
     }
+
 }

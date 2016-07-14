@@ -9,8 +9,9 @@ $xpdo_meta_map['Shopmodx1cTmpPrice']= array (
     'article' => NULL,
     'good_id' => NULL,
     'type_id' => NULL,
-    'value' => NULL,
+    'value' => 0,
     'currency_id' => 1,
+    'currency_name' => NULL,
     'processed' => '0',
   ),
   'fieldMeta' => 
@@ -40,8 +41,10 @@ $xpdo_meta_map['Shopmodx1cTmpPrice']= array (
     array (
       'dbtype' => 'float',
       'precision' => '10,2',
+      'attributes' => 'unsigned',
       'phptype' => 'float',
       'null' => false,
+      'default' => 0,
     ),
     'currency_id' => 
     array (
@@ -51,6 +54,13 @@ $xpdo_meta_map['Shopmodx1cTmpPrice']= array (
       'phptype' => 'integer',
       'null' => false,
       'default' => 1,
+    ),
+    'currency_name' => 
+    array (
+      'dbtype' => 'varchar',
+      'precision' => '255',
+      'phptype' => 'string',
+      'null' => false,
     ),
     'processed' => 
     array (

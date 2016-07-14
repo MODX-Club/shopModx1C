@@ -6,63 +6,90 @@ $xpdo_meta_map['Shopmodx1cTmpProduct']= array (
   'extends' => 'xPDOSimpleObject',
   'fields' => 
   array (
+    'externalKey' => NULL,
     'article' => NULL,
     'title' => NULL,
+    'longtitle' => NULL,
     'description' => NULL,
     'image' => NULL,
+    'weight' => 0,
     'groups' => NULL,
     'properties' => NULL,
     'requisites' => NULL,
     'processed' => '0',
-    'extended' => '{}',
+    'extended' => NULL,
   ),
   'fieldMeta' => 
   array (
-    'article' => 
+    'externalKey' => 
     array (
       'dbtype' => 'char',
       'precision' => '36',
       'phptype' => 'string',
       'null' => false,
-      'index' => 'unique',
+      'index' => 'index',
+    ),
+    'article' => 
+    array (
+      'dbtype' => 'varchar',
+      'precision' => '100',
+      'phptype' => 'string',
+      'null' => true,
+      'index' => 'index',
     ),
     'title' => 
     array (
       'dbtype' => 'varchar',
       'precision' => '256',
       'phptype' => 'string',
-      'null' => false,
+      'null' => true,
+    ),
+    'longtitle' => 
+    array (
+      'dbtype' => 'varchar',
+      'precision' => '255',
+      'phptype' => 'string',
+      'null' => true,
     ),
     'description' => 
     array (
       'dbtype' => 'text',
       'phptype' => 'string',
-      'null' => false,
+      'null' => true,
     ),
     'image' => 
     array (
       'dbtype' => 'varchar',
       'precision' => '1024',
       'phptype' => 'string',
-      'null' => false,
+      'null' => true,
+    ),
+    'weight' => 
+    array (
+      'dbtype' => 'float',
+      'precision' => '10,2',
+      'attributes' => 'unsigned',
+      'phptype' => 'float',
+      'null' => true,
+      'default' => 0,
     ),
     'groups' => 
     array (
       'dbtype' => 'text',
       'phptype' => 'string',
-      'null' => false,
+      'null' => true,
     ),
     'properties' => 
     array (
       'dbtype' => 'text',
       'phptype' => 'string',
-      'null' => false,
+      'null' => true,
     ),
     'requisites' => 
     array (
       'dbtype' => 'text',
       'phptype' => 'string',
-      'null' => false,
+      'null' => true,
     ),
     'processed' => 
     array (
@@ -82,22 +109,6 @@ $xpdo_meta_map['Shopmodx1cTmpProduct']= array (
   ),
   'indexes' => 
   array (
-    'article' => 
-    array (
-      'alias' => 'article',
-      'primary' => false,
-      'unique' => true,
-      'type' => 'BTREE',
-      'columns' => 
-      array (
-        'article' => 
-        array (
-          'length' => '',
-          'collation' => 'A',
-          'null' => false,
-        ),
-      ),
-    ),
     'processed' => 
     array (
       'alias' => 'processed',
@@ -111,6 +122,38 @@ $xpdo_meta_map['Shopmodx1cTmpProduct']= array (
           'length' => '',
           'collation' => 'A',
           'null' => false,
+        ),
+      ),
+    ),
+    'externalKey' => 
+    array (
+      'alias' => 'externalKey',
+      'primary' => false,
+      'unique' => false,
+      'type' => 'BTREE',
+      'columns' => 
+      array (
+        'externalKey' => 
+        array (
+          'length' => '',
+          'collation' => 'A',
+          'null' => false,
+        ),
+      ),
+    ),
+    'article' => 
+    array (
+      'alias' => 'article',
+      'primary' => false,
+      'unique' => false,
+      'type' => 'BTREE',
+      'columns' => 
+      array (
+        'article' => 
+        array (
+          'length' => '',
+          'collation' => 'A',
+          'null' => true,
         ),
       ),
     ),
